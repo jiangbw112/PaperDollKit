@@ -1,0 +1,21 @@
+{
+  "name": "@paperdollkit/renderer-webgl2",
+  "version": "2.0.0-alpha.0",
+  "description": "Lightweight WebGL2 Mask+Ramp LUT 2D renderer (1:1 shader parity with Godot 4 & Cocos 3.x) with Canvas 2D software fallback",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@paperdollkit/core": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}
