@@ -1,0 +1,806 @@
+{
+  "shadow_oval": {
+    "width": 112,
+    "height": 44
+  },
+  "body_base_S": {
+    "width": 110,
+    "height": 96
+  },
+  "head_base_S": {
+    "width": 112,
+    "height": 102
+  },
+  "face_dot_S": {
+    "width": 96,
+    "height": 60
+  },
+  "face_happy_S": {
+    "width": 96,
+    "height": 60
+  },
+  "face_sharp_S": {
+    "width": 96,
+    "height": 60
+  },
+  "face_arcane_S": {
+    "width": 96,
+    "height": 60
+  },
+  "legs_bare_S": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_S_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_S_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_S_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_S_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_S_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_S_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_S": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_S_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_S_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_S_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_S_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_S_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_S_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_S": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_S_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_S_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_S_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_S_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_S_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_S_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "torso_plate_S": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_robe_S": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_vest_S": {
+    "width": 128,
+    "height": 108
+  },
+  "belt_gold_S": {
+    "width": 96,
+    "height": 46
+  },
+  "cape_long_S": {
+    "width": 136,
+    "height": 124
+  },
+  "hair_short_S": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_crown_S": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_long_S": {
+    "width": 124,
+    "height": 112
+  },
+  "hat_knight_helm_S": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_wizard_hat_S": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_hood_S": {
+    "width": 140,
+    "height": 126
+  },
+  "body_base_SE": {
+    "width": 110,
+    "height": 96
+  },
+  "head_base_SE": {
+    "width": 112,
+    "height": 102
+  },
+  "face_dot_SE": {
+    "width": 96,
+    "height": 60
+  },
+  "face_happy_SE": {
+    "width": 96,
+    "height": 60
+  },
+  "face_sharp_SE": {
+    "width": 96,
+    "height": 60
+  },
+  "face_arcane_SE": {
+    "width": 96,
+    "height": 60
+  },
+  "legs_bare_SE": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_SE_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_SE_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_SE_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_SE_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_SE_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_SE_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_SE": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_SE_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_SE_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_SE_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_SE_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_SE_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_SE_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_SE": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_SE_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_SE_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_SE_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_SE_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_SE_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_SE_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "torso_plate_SE": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_robe_SE": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_vest_SE": {
+    "width": 128,
+    "height": 108
+  },
+  "belt_gold_SE": {
+    "width": 96,
+    "height": 46
+  },
+  "cape_long_SE": {
+    "width": 136,
+    "height": 124
+  },
+  "hair_short_SE": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_crown_SE": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_long_SE": {
+    "width": 124,
+    "height": 112
+  },
+  "hat_knight_helm_SE": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_wizard_hat_SE": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_hood_SE": {
+    "width": 140,
+    "height": 126
+  },
+  "body_base_E": {
+    "width": 110,
+    "height": 96
+  },
+  "head_base_E": {
+    "width": 112,
+    "height": 102
+  },
+  "face_dot_E": {
+    "width": 96,
+    "height": 60
+  },
+  "face_happy_E": {
+    "width": 96,
+    "height": 60
+  },
+  "face_sharp_E": {
+    "width": 96,
+    "height": 60
+  },
+  "face_arcane_E": {
+    "width": 96,
+    "height": 60
+  },
+  "legs_bare_E": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_E_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_E_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_E_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_E_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_E_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_E_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_E": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_E_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_E_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_E_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_E_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_E_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_E_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_E": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_E_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_E_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_E_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_E_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_E_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_E_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "torso_plate_E": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_robe_E": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_vest_E": {
+    "width": 128,
+    "height": 108
+  },
+  "belt_gold_E": {
+    "width": 96,
+    "height": 46
+  },
+  "cape_long_E": {
+    "width": 136,
+    "height": 124
+  },
+  "hair_short_E": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_crown_E": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_long_E": {
+    "width": 124,
+    "height": 112
+  },
+  "hat_knight_helm_E": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_wizard_hat_E": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_hood_E": {
+    "width": 140,
+    "height": 126
+  },
+  "body_base_NE": {
+    "width": 110,
+    "height": 96
+  },
+  "head_base_NE": {
+    "width": 112,
+    "height": 102
+  },
+  "face_dot_NE": {
+    "width": 96,
+    "height": 60
+  },
+  "face_happy_NE": {
+    "width": 96,
+    "height": 60
+  },
+  "face_sharp_NE": {
+    "width": 96,
+    "height": 60
+  },
+  "face_arcane_NE": {
+    "width": 96,
+    "height": 60
+  },
+  "legs_bare_NE": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_NE_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_NE_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_NE_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_NE_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_NE_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_NE_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_NE": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_NE_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_NE_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_NE_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_NE_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_NE_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_NE_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_NE": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_NE_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_NE_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_NE_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_NE_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_NE_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_NE_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "torso_plate_NE": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_robe_NE": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_vest_NE": {
+    "width": 128,
+    "height": 108
+  },
+  "belt_gold_NE": {
+    "width": 96,
+    "height": 46
+  },
+  "cape_long_NE": {
+    "width": 136,
+    "height": 124
+  },
+  "hair_short_NE": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_crown_NE": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_long_NE": {
+    "width": 124,
+    "height": 112
+  },
+  "hat_knight_helm_NE": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_wizard_hat_NE": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_hood_NE": {
+    "width": 140,
+    "height": 126
+  },
+  "body_base_N": {
+    "width": 110,
+    "height": 96
+  },
+  "head_base_N": {
+    "width": 112,
+    "height": 102
+  },
+  "face_dot_N": {
+    "width": 96,
+    "height": 60
+  },
+  "face_happy_N": {
+    "width": 96,
+    "height": 60
+  },
+  "face_sharp_N": {
+    "width": 96,
+    "height": 60
+  },
+  "face_arcane_N": {
+    "width": 96,
+    "height": 60
+  },
+  "legs_bare_N": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_N_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_N_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_N_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_N_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_N_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_bare_N_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_N": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_N_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_N_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_N_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_N_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_N_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_greaves_N_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_N": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_N_walk_0": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_N_walk_1": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_N_walk_2": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_N_walk_3": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_N_walk_4": {
+    "width": 112,
+    "height": 86
+  },
+  "legs_robe_skirt_N_walk_5": {
+    "width": 112,
+    "height": 86
+  },
+  "torso_plate_N": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_robe_N": {
+    "width": 128,
+    "height": 108
+  },
+  "torso_vest_N": {
+    "width": 128,
+    "height": 108
+  },
+  "belt_gold_N": {
+    "width": 96,
+    "height": 46
+  },
+  "cape_long_N": {
+    "width": 136,
+    "height": 124
+  },
+  "hair_short_N": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_crown_N": {
+    "width": 124,
+    "height": 112
+  },
+  "hair_long_N": {
+    "width": 124,
+    "height": 112
+  },
+  "hat_knight_helm_N": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_wizard_hat_N": {
+    "width": 140,
+    "height": 126
+  },
+  "hat_hood_N": {
+    "width": 140,
+    "height": 126
+  },
+  "arm_bare": {
+    "width": 64,
+    "height": 88
+  },
+  "arm_cloth": {
+    "width": 64,
+    "height": 88
+  },
+  "arm_armor": {
+    "width": 64,
+    "height": 88
+  },
+  "prop_wings": {
+    "width": 168,
+    "height": 120
+  },
+  "prop_quiver": {
+    "width": 88,
+    "height": 96
+  },
+  "weapon_sword": {
+    "width": 92,
+    "height": 118
+  },
+  "weapon_staff": {
+    "width": 96,
+    "height": 128
+  },
+  "weapon_axe": {
+    "width": 104,
+    "height": 118
+  },
+  "offhand_shield": {
+    "width": 76,
+    "height": 88
+  },
+  "offhand_tome": {
+    "width": 68,
+    "height": 68
+  }
+}

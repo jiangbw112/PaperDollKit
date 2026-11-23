@@ -32,7 +32,7 @@ import { ExportModal } from './components/ExportModal.tsx';
 import { LutPreviewBar } from './components/LutPreviewBar.tsx';
 import { ViewportCanvas } from './components/ViewportCanvas.tsx';
 import { downloadTextFile, importBrowserFiles } from './utils/browser-import.ts';
-import { loadChibiHDPack } from './utils/chibi-pack-loader.ts';
+import { loadStickerHDPack } from './utils/sticker-pack-loader.ts';
 
 const COMPASS_GRID: (DirectionId | null)[][] = [
   ['NW', 'N', 'NE'],
@@ -69,12 +69,12 @@ export default function App() {
   const [importToast, setImportToast] = useState<string | null>(null);
   const [lastReport, setLastReport] = useState<ImportReport | null>(null);
 
-  const applyChibiPack = useCallback(async () => {
-    const chibi = await loadChibiHDPack();
-    setPack(chibi.pack);
-    setImages(chibi.images);
+  const applyDefaultPack = useCallback(async () => {
+    const sticker = await loadStickerHDPack();
+    setPack(sticker.pack);
+    setImages(sticker.images);
     setImagesVersion((v) => v + 1);
-    const ch = new PaperDollCharacter(chibi.pack, {
+    const ch = new PaperDollCharacter(sticker.pack, {
       preset: 'prince_knight',
       direction: 'SE',
       action: 'idle',
@@ -83,8 +83,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    void applyChibiPack();
-  }, [applyChibiPack]);
+    void applyDefaultPack();
+  }, [applyDefaultPack]);
 
   const globalFileInputRef = useRef<HTMLInputElement | null>(null);
   const slotAlbedoInputRef = useRef<HTMLInputElement | null>(null);
@@ -407,10 +407,10 @@ export default function App() {
             </div>
             <button
               onClick={() => {
-                void applyChibiPack().then(() => showToast('已重置为 Q版高清奇幻角色包'));
+                void applyDefaultPack().then(() => showToast('已重置为 0xsu 风贴纸木头人角色包'));
               }}
               className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-              title="重置默认 Q版角色资产"
+              title="重置默认 0xsu 风贴纸角色资产"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
