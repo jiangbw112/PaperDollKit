@@ -40,8 +40,11 @@ export class Canvas2DPaperDollRenderer implements PaperDollRenderer {
     mask: RenderImageSource | undefined,
     debugMaskView: boolean,
   ): HTMLCanvasElement {
+    const sr = layer.frame.sourceRect;
+    const mr = layer.frame.maskRect ?? sr;
     const key = [
       layer.frame.imageId,
+      `${sr.x},${sr.y},${sr.width},${sr.height}`,
       layer.frame.maskImageId ?? '-',
       layer.slotId,
       layer.paletteId,
@@ -54,11 +57,13 @@ export class Canvas2DPaperDollRenderer implements PaperDollRenderer {
     const cached = this.spriteCache.get(key);
     if (cached) return cached;
 
+    const w = Math.max(1, sr.width);
+    const h = Math.max(1, sr.height);
     const off = document.createElement('canvas');
-    off.width = albedo.width;
-    off.height = albedo.height;
+    off.width = w;
+    off.height = h;
     const octx = off.getContext('2d')!;
-    const out = octx.createImageData(albedo.width, albedo.height);
+    const out = octx.createImageData(w, h);
 
     const pal = pack.palettes[layer.paletteId] ?? Object.values(pack.palettes)[0]!;
     const skin = pack.skins[layer.skinId] ?? Object.values(pack.skins)[0]!;
@@ -71,53 +76,56 @@ export class Canvas2DPaperDollRenderer implements PaperDollRenderer {
     );
     const tint = parseColor(pal.swatch);
 
-    const pixelCount = albedo.width * albedo.height;
-    for (let i = 0; i < pixelCount; i++) {
-      const o = i * 4;
-      const a = albedo.data[o + 3]!;
-      if (a === 0) continue;
+    for (let y = 0; y < h; y++) {
+      const sy = sr.y + y;
+      const my = mr.y + y;
+      for (let x = 0; x < w; x++) {
+        const sx = sr.x + x;
+        const so = (sy * albedo.width + sx) * 4;
+        const a = albedo.data[so + 3]!;
+        if (a === 0) continue;
 
-      const r = albedo.data[o]!;
-      const g = albedo.data[o + 1]!;
-      const b = albedo.data[o + 2]!;
+        const r = albedo.data[so]!;
+        const g = albedo.data[so + 1]!;
+        const b = albedo.data[so + 2]!;
+        const dst = (y * w + x) * 4;
 
-      if (debugMaskView && mask) {
-        const mr = mask.data[o]!;
-        const mg = mask.data[o + 1]!;
-        const mb = mask.data[o + 2]!;
-        const ma = mask.data[o + 3]!;
-        out.data[o] = Math.min(255, mr + Math.round(ma * 0.65));
-        out.data[o + 1] = Math.min(255, mg + Math.round(ma * 0.65));
-        out.data[o + 2] = Math.min(255, mb + Math.round(ma * 0.65));
-        out.data[o + 3] = a;
-        continue;
-      }
+        if (debugMaskView && mask) {
+          const mo = (my * mask.width + (mr.x + x)) * 4;
+          out.data[dst] = mask.data[mo]!;
+          out.data[dst + 1] = mask.data[mo + 1]!;
+          out.data[dst + 2] = mask.data[mo + 2]!;
+          out.data[dst + 3] = a;
+          continue;
+        }
 
-      if (layer.recolorMode === 'mask_ramp' && mask) {
-        const px = evaluatePixelMaskRamp(
-          { r, g, b, a },
-          {
-            r: mask.data[o]!,
-            g: mask.data[o + 1]!,
-            b: mask.data[o + 2]!,
-            a: mask.data[o + 3]!,
-          },
-          lut,
-        );
-        out.data[o] = px.r;
-        out.data[o + 1] = px.g;
-        out.data[o + 2] = px.b;
-        out.data[o + 3] = px.a;
-      } else if (layer.recolorMode === 'tint') {
-        out.data[o] = Math.round((r * tint.r) / 255);
-        out.data[o + 1] = Math.round((g * tint.g) / 255);
-        out.data[o + 2] = Math.round((b * tint.b) / 255);
-        out.data[o + 3] = a;
-      } else {
-        out.data[o] = r;
-        out.data[o + 1] = g;
-        out.data[o + 2] = b;
-        out.data[o + 3] = a;
+        if (layer.recolorMode === 'mask_ramp' && mask) {
+          const mo = (my * mask.width + (mr.x + x)) * 4;
+          const px = evaluatePixelMaskRamp(
+            { r, g, b, a },
+            {
+              r: mask.data[mo]!,
+              g: mask.data[mo + 1]!,
+              b: mask.data[mo + 2]!,
+              a: mask.data[mo + 3]!,
+            },
+            lut,
+          );
+          out.data[dst] = px.r;
+          out.data[dst + 1] = px.g;
+          out.data[dst + 2] = px.b;
+          out.data[dst + 3] = px.a;
+        } else if (layer.recolorMode === 'tint') {
+          out.data[dst] = Math.round((r * tint.r) / 255);
+          out.data[dst + 1] = Math.round((g * tint.g) / 255);
+          out.data[dst + 2] = Math.round((b * tint.b) / 255);
+          out.data[dst + 3] = a;
+        } else {
+          out.data[dst] = r;
+          out.data[dst + 1] = g;
+          out.data[dst + 2] = b;
+          out.data[dst + 3] = a;
+        }
       }
     }
 
@@ -172,17 +180,7 @@ export class Canvas2DPaperDollRenderer implements PaperDollRenderer {
 
       const drawX = trimOffset.x - pivot.x * originalSize.width;
       const drawY = trimOffset.y - pivot.y * originalSize.height;
-      ctx.drawImage(
-        sprite,
-        sourceRect.x,
-        sourceRect.y,
-        sourceRect.width,
-        sourceRect.height,
-        drawX,
-        drawY,
-        sourceRect.width,
-        sourceRect.height,
-      );
+      ctx.drawImage(sprite, 0, 0, sourceRect.width, sourceRect.height, drawX, drawY, sourceRect.width, sourceRect.height);
       ctx.restore();
     }
 

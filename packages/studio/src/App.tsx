@@ -70,16 +70,20 @@ export default function App() {
   const [lastReport, setLastReport] = useState<ImportReport | null>(null);
 
   const applyDefaultPack = useCallback(async () => {
-    const sticker = await loadStickerHDPack();
-    setPack(sticker.pack);
-    setImages(sticker.images);
-    setImagesVersion((v) => v + 1);
-    const ch = new PaperDollCharacter(sticker.pack, {
-      preset: 'prince_knight',
-      direction: 'SE',
-      action: 'idle',
-    });
-    setConfig(ch.toJSON());
+    try {
+      const sticker = await loadStickerHDPack();
+      setPack(sticker.pack);
+      setImages(sticker.images);
+      setImagesVersion((v) => v + 1);
+      const ch = new PaperDollCharacter(sticker.pack, {
+        preset: 'prince_knight',
+        direction: 'SE',
+        action: 'idle',
+      });
+      setConfig(ch.toJSON());
+    } catch (err) {
+      setImportToast(`资源包加载失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }, []);
 
   useEffect(() => {
