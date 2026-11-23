@@ -1,15 +1,12 @@
 import {
   PaperDollCharacter,
+  createStarterIsometricPack,
   type AssetPackManifest,
   type DirectionId,
   type HandColorBugMode,
   type SlotId,
 } from '@paperdollkit/core';
-import {
-  createDemoHDPackWithImages,
-  type ImportReport,
-  type ImportedImage,
-} from '@paperdollkit/importers';
+import type { ImportReport, ImportedImage } from '@paperdollkit/importers';
 import {
   Bug,
   Download,
@@ -41,14 +38,14 @@ const COMPASS_GRID: (DirectionId | null)[][] = [
 ];
 
 export default function App() {
-  const initialFallback = useMemo(() => createDemoHDPackWithImages(), []);
+  const initialShell = useMemo(() => createStarterIsometricPack(), []);
 
-  const [pack, setPack] = useState<AssetPackManifest>(initialFallback.pack);
-  const [images, setImages] = useState<Map<string, ImportedImage>>(initialFallback.images);
+  const [pack, setPack] = useState<AssetPackManifest>(initialShell);
+  const [images, setImages] = useState<Map<string, ImportedImage>>(() => new Map());
   const [imagesVersion, setImagesVersion] = useState(0);
 
   const [config, setConfig] = useState(() => {
-    const ch = new PaperDollCharacter(initialFallback.pack, {
+    const ch = new PaperDollCharacter(initialShell, {
       preset: 'knight',
       direction: 'SE',
       action: 'idle',

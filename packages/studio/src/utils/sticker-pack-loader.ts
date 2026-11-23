@@ -63,7 +63,7 @@ const MASK_ATLAS_ID = 'sticker/mask_atlas.png';
  *
  * Instant loading (<150ms even over proxied remote preview tunnels) + single-atlas GPU rendering!
  */
-export async function loadStickerHDPack(basePath = '/assets/sticker-hero'): Promise<{
+export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Promise<{
   pack: AssetPackManifest;
   images: Map<string, ImportedImage>;
 }> {
