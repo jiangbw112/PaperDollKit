@@ -12,7 +12,6 @@ describe('@paperdollkit/renderer-webgl2 shader contract', () => {
     expect(FRAGMENT_SHADER_SRC).toContain(String(LUT_ROW_V.PRIMARY));
     expect(FRAGMENT_SHADER_SRC).toContain(String(LUT_ROW_V.SECONDARY));
     expect(FRAGMENT_SHADER_SRC).toContain(String(LUT_ROW_V.SKIN));
-    expect(FRAGMENT_SHADER_SRC).toContain(String(LUT_ROW_V.METAL));
   });
 
   it('declares all required canonical shader uniforms', () => {

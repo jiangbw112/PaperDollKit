@@ -72,10 +72,9 @@ void main() {
   vec4 mask = texture(u_mask_tex, v_uv);
 
   if (u_debug_mask == 1) {
-    // Visualizes R(primary), G(secondary), B(skin), A(metal as cyan-white)
-    vec3 dbg = mask.rgb + vec3(mask.a * 0.65);
-    float sum = mask.r + mask.g + mask.b + mask.a;
-    vec3 base = mix(albedo.rgb * 0.35, dbg, clamp(sum, 0.0, 1.0));
+    // Visualizes R(primary), G(secondary), B(skin)
+    float sum = mask.r + mask.g + mask.b;
+    vec3 base = mix(albedo.rgb * 0.35, mask.rgb, clamp(sum, 0.0, 1.0));
     outColor = vec4(base, albedo.a * u_opacity);
     return;
   }
@@ -87,20 +86,18 @@ void main() {
     vec3 cPrimary   = texture(u_lut_tex, vec2(lum, ${LUT_ROW_V.PRIMARY})).rgb;
     vec3 cSecondary = texture(u_lut_tex, vec2(lum, ${LUT_ROW_V.SECONDARY})).rgb;
     vec3 cSkin      = texture(u_lut_tex, vec2(lum, ${LUT_ROW_V.SKIN})).rgb;
-    vec3 cMetal     = texture(u_lut_tex, vec2(lum, ${LUT_ROW_V.METAL})).rgb;
 
-    vec4 w = mask;
-    float wSum = w.r + w.g + w.b + w.a;
+    vec3 w = mask.rgb;
+    float wSum = w.r + w.g + w.b;
     if (wSum > 1.0) {
       w /= wSum;
     }
-    float wOrig = max(0.0, 1.0 - (w.r + w.g + w.b + w.a));
+    float wOrig = max(0.0, 1.0 - (w.r + w.g + w.b));
 
     finalRgb = albedo.rgb * wOrig
              + cPrimary * w.r
              + cSecondary * w.g
-             + cSkin * w.b
-             + cMetal * w.a;
+             + cSkin * w.b;
   } else if (u_recolor_mode == 2) {
     finalRgb = albedo.rgb * u_tint_color.rgb;
   }

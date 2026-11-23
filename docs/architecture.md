@@ -26,17 +26,17 @@
 
 ### 纹理约定
 - **Albedo 图（RGBA8）**：携带完整高清明暗光影、线稿与透明度（可为灰度底图或带固定色细节的彩图）。
-- **Semantic Mask 图（RGBA8，与 Albedo UV 对齐）**：
+- **Semantic Mask 图（RGBA8，强制不透明 `A = 255`，与 Albedo UV 对齐）**：
   - `R` = 主服装色权重（采样 LUT 第 0 行）
   - `G` = 辅服装色权重（采样 LUT 第 1 行）
   - `B` = **肤色语义通道权重**（采样 LUT 第 2 行——手臂图层中袖子画在 `R`，手掌画在 `B`，完美保留抗锯齿交界并彻底解决“换肤色手不跟着变色”）
-  - `A` = 金属/中性色权重（采样 LUT 第 3 行）
-  - `1 - (R + G + B + A)` = 保留 Albedo 原色（线稿、眼白、特效高光不受染色影响）
+  - `A = 255`（固定不透明，避免 Photoshop/PNG/Canvas 2D 预乘 Alpha 把低透明像素的 RGB 通道抹零）
+  - `1 - (R + G + B)` = 保留 Albedo 原色（线稿、眼白、手绘银甲高光不受染色影响）
 - **LUT 纹理（`256 × 4` RGBA8，LINEAR 采样，CLAMP_TO_EDGE）**：
   - Row 0 (`v = 0.125`): Primary 渐变色带
   - Row 1 (`v = 0.375`): Secondary 渐变色带
   - Row 2 (`v = 0.625`): Skin 渐变色带
-  - Row 3 (`v = 0.875`): Metal 渐变色带
+  - Row 3 (`v = 0.875`): 预留扩展色带
 
 ### 核心采样公式（WebGL2 / `.gdshader` / `.effect` 统一）
 ```glsl
@@ -44,18 +44,16 @@ float lum = dot(albedo.rgb, vec3(0.2126, 0.7152, 0.0722));
 vec3 cPrimary   = texture(u_lut_tex, vec2(lum, 0.125)).rgb;
 vec3 cSecondary = texture(u_lut_tex, vec2(lum, 0.375)).rgb;
 vec3 cSkin      = texture(u_lut_tex, vec2(lum, 0.625)).rgb;
-vec3 cMetal     = texture(u_lut_tex, vec2(lum, 0.875)).rgb;
 
-vec4 w = mask;
-float wSum = w.r + w.g + w.b + w.a;
+vec3 w = mask.rgb;
+float wSum = w.r + w.g + w.b;
 if (wSum > 1.0) w /= wSum;
-float wOrig = max(0.0, 1.0 - (w.r + w.g + w.b + w.a));
+float wOrig = max(0.0, 1.0 - (w.r + w.g + w.b));
 
 vec3 finalRgb = albedo.rgb * wOrig
               + cPrimary * w.r
               + cSecondary * w.g
-              + cSkin * w.b
-              + cMetal * w.a;
+              + cSkin * w.b;
 ```
 
 ---

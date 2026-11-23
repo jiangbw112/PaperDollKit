@@ -199,40 +199,34 @@ export function evaluatePixelMaskRamp(
   let wPrimary = mask.r / 255;
   let wSecondary = mask.g / 255;
   let wSkin = mask.b / 255;
-  let wMetal = mask.a / 255;
 
-  const totalMask = wPrimary + wSecondary + wSkin + wMetal;
+  const totalMask = wPrimary + wSecondary + wSkin;
   if (totalMask > 1) {
     wPrimary /= totalMask;
     wSecondary /= totalMask;
     wSkin /= totalMask;
-    wMetal /= totalMask;
   }
-  const wOriginal = Math.max(0, 1 - (wPrimary + wSecondary + wSkin + wMetal));
+  const wOriginal = Math.max(0, 1 - (wPrimary + wSecondary + wSkin));
 
   const cPrimary = sampleRow(LUT_ROW.PRIMARY);
   const cSecondary = sampleRow(LUT_ROW.SECONDARY);
   const cSkin = sampleRow(LUT_ROW.SKIN);
-  const cMetal = sampleRow(LUT_ROW.METAL);
 
   const outR =
     ar * wOriginal +
     cPrimary[0] * wPrimary +
     cSecondary[0] * wSecondary +
-    cSkin[0] * wSkin +
-    cMetal[0] * wMetal;
+    cSkin[0] * wSkin;
   const outG =
     ag * wOriginal +
     cPrimary[1] * wPrimary +
     cSecondary[1] * wSecondary +
-    cSkin[1] * wSkin +
-    cMetal[1] * wMetal;
+    cSkin[1] * wSkin;
   const outB =
     ab * wOriginal +
     cPrimary[2] * wPrimary +
     cSecondary[2] * wSecondary +
-    cSkin[2] * wSkin +
-    cMetal[2] * wMetal;
+    cSkin[2] * wSkin;
 
   return {
     r: clampByte(outR * 255),

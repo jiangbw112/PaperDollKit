@@ -30,6 +30,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LutPreviewBar } from './components/LutPreviewBar.tsx';
 import { ViewportCanvas } from './components/ViewportCanvas.tsx';
 import { downloadTextFile, importBrowserFiles } from './utils/browser-import.ts';
+import { loadChibiHDPack } from './utils/chibi-pack-loader.ts';
 
 const COMPASS_GRID: (DirectionId | null)[][] = [
   ['NW', 'N', 'NE'],
@@ -38,14 +39,14 @@ const COMPASS_GRID: (DirectionId | null)[][] = [
 ];
 
 export default function App() {
-  const initialDemo = useMemo(() => createDemoHDPackWithImages(), []);
+  const initialFallback = useMemo(() => createDemoHDPackWithImages(), []);
 
-  const [pack, setPack] = useState<AssetPackManifest>(initialDemo.pack);
-  const [images, setImages] = useState<Map<string, ImportedImage>>(initialDemo.images);
+  const [pack, setPack] = useState<AssetPackManifest>(initialFallback.pack);
+  const [images, setImages] = useState<Map<string, ImportedImage>>(initialFallback.images);
   const [imagesVersion, setImagesVersion] = useState(0);
 
   const [config, setConfig] = useState(() => {
-    const ch = new PaperDollCharacter(initialDemo.pack, {
+    const ch = new PaperDollCharacter(initialFallback.pack, {
       preset: 'knight',
       direction: 'SE',
       action: 'idle',
@@ -57,13 +58,30 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [timeMs, setTimeMs] = useState(0);
   const [speed, setSpeed] = useState(1);
-  const [zoom, setZoom] = useState(1.75);
+  const [zoom, setZoom] = useState(1.85);
   const [explodeSpread, setExplodeSpread] = useState(0);
   const [showGizmos, setShowGizmos] = useState(false);
   const [debugMaskView, setDebugMaskView] = useState(false);
   const [backend, setBackend] = useState<'webgl2' | 'canvas2d'>('webgl2');
   const [importToast, setImportToast] = useState<string | null>(null);
   const [lastReport, setLastReport] = useState<ImportReport | null>(null);
+
+  const applyChibiPack = useCallback(async () => {
+    const chibi = await loadChibiHDPack();
+    setPack(chibi.pack);
+    setImages(chibi.images);
+    setImagesVersion((v) => v + 1);
+    const ch = new PaperDollCharacter(chibi.pack, {
+      preset: 'prince_knight',
+      direction: 'SE',
+      action: 'idle',
+    });
+    setConfig(ch.toJSON());
+  }, []);
+
+  useEffect(() => {
+    void applyChibiPack();
+  }, [applyChibiPack]);
 
   const globalFileInputRef = useRef<HTMLInputElement | null>(null);
   const slotAlbedoInputRef = useRef<HTMLInputElement | null>(null);
@@ -298,14 +316,14 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
           {/* Presets quick bar */}
-          <div className="hidden lg:flex items-center gap-1 mr-2 border-r border-slate-800 pr-2.5">
+          <div className="hidden lg:flex items-center gap-1 mr-1 border-r border-slate-800 pr-2">
             {pack.presets.map((p) => (
               <button
                 key={p.id}
                 onClick={() => mutateCharacter((ch) => ch.applyPreset(p.id))}
-                className="rounded px-2 py-1 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
+                className="rounded px-2 py-1 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap"
               >
                 {p.name}
               </button>
@@ -377,20 +395,10 @@ export default function App() {
             </div>
             <button
               onClick={() => {
-                const fresh = createDemoHDPackWithImages();
-                setPack(fresh.pack);
-                setImages(fresh.images);
-                setImagesVersion((v) => v + 1);
-                const ch = new PaperDollCharacter(fresh.pack, {
-                  preset: 'knight',
-                  direction: 'SE',
-                  action: 'idle',
-                });
-                setConfig(ch.toJSON());
-                showToast('已重置为内置 256×256 高清示例包');
+                void applyChibiPack().then(() => showToast('已重置为 Q版高清奇幻角色包'));
               }}
               className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-              title="重置默认示例资产"
+              title="重置默认 Q版角色资产"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>

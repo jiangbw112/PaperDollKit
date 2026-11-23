@@ -4,12 +4,12 @@
  * All three render targets implement the exact same Mask + Gradient Ramp LUT
  * recolor math so studio preview matches in-engine rendering 1:1.
  *
- * Semantic Mask Texture (RGBA8, aligned with albedo UV):
+ * Semantic Mask Texture (RGBA8, opaque A=255, aligned with albedo UV):
  *   - mask.r = Primary clothing weight   (samples LUT row 0)
  *   - mask.g = Secondary clothing weight (samples LUT row 1)
  *   - mask.b = Skin channel weight       (samples LUT row 2 — keeps hands in sync with body skin!)
- *   - mask.a = Metal/accent weight       (samples LUT row 3; optional, 0 = untouched lineart/highlights)
- *   - residual = max(0.0, 1.0 - (mask.r + mask.g + mask.b + mask.a)) keeps original albedo RGB
+ *   - mask.a = Always 255 (opaque so Photoshop/PNG/Canvas2D never premultiply away RGB weights)
+ *   - residual = max(0.0, 1.0 - (mask.r + mask.g + mask.b)) keeps original albedo RGB (lineart, eyes, silver metal)
  *
  * LUT Texture (RGBA8, width = 256, height = 4, filter = LINEAR, wrap = CLAMP_TO_EDGE):
  *   - Row 0 (v = 0.125): Primary clothing ramp
