@@ -1,35 +1,25 @@
-# PaperDollKit — 零依赖 2D 分层纸片人核心库
+# PaperDollKit v2
 
-参考 17 槽位贴纸式纸娃娃架构实现的轻量化 JS 核心库，支持 **17 个独立槽位**、**10 套调色板实时换色（LUT）**、**8 方向 × 4 动作动画状态机**，并内置**手部肤色同步开关**用于直观对比「手没跟着变色」的常见坑与修复方案。
+面向 **暗黑风格俯视（Isometric 2.5D）高清 2D 角色** 的模块化换装装配工坊与多引擎导出套件，支持同时导出至 **Godot 4.x** 与 **Cocos Creator 3.x**（烘焙序列帧 + 模块化实时换装双模式）。
 
-## 快速上手
+> 架构与 Shader/导出协议详见 [docs/architecture.md](./docs/architecture.md)。
+> v1.0 零依赖像素研究原型已归档在 [legacy/v1/](./legacy/v1/)（对应 tag `v1.0.0-prototype`）。
 
-```html
-<canvas id="stage" width="256" height="256"></canvas>
-<script src="./paperdoll.js"></script>
-<script>
-  const { PaperDollCharacter } = window.PaperDollKit;
+## 当前工作区状态
 
-  const hero = new PaperDollCharacter({ preset: 'knight' });
-  hero.setDirection('SE').setAction('walk');
+- **`@paperdollkit/core`**（已完成 M1）：
+  - 规范化 `v2.0.0` 高清 2D 纸娃娃 IR（`AssetPackManifest` / `CharacterConfig` + 运行时严格校验）
+  - 暗黑 8 向 / 4 向 / 2 向朝向表与自动镜像反射（8 向仅需绘制 `S/SE/E/NE/N` 5 向，`W/SW/NW` 自动对称映射）
+  - **混合动画求值器**：同时支持层级剪纸骨骼关键帧（`step / linear / easeInOut`）与逐帧序列帧 + 帧级挂点（Socket）跟随
+  - **Mask + Gradient Ramp LUT 换色引擎**：统一 `256×4` RGBA8 LUT 纹理（主色 / 辅色 / 肤色通道 / 金属）与 CPU 参考实现，保证 WebGL2、Godot `.gdshader`、Cocos `.effect` 渲染 1:1 一致
+  - 保留 `handColorBugMode` 诊断开关，用于直观验证手臂图层肤色通道同步
 
-  const ctx = document.getElementById('stage').getContext('2d');
-  function loop(t) {
-    ctx.clearRect(0, 0, 256, 256);
-    hero.render(ctx, 32, 32, 6, t);
-    requestAnimationFrame(loop);
-  }
-  requestAnimationFrame(loop);
-</script>
+## 常用命令
+
+```bash
+pnpm install        # 安装依赖
+pnpm build          # 编译所有 packages（含 .d.ts）
+pnpm typecheck      # 严格类型检查
+pnpm test           # 运行 Vitest 单元测试
+pnpm test:legacy    # 验证归档的 v1.0 原型测试
 ```
-
-## 核心 API
-
-- `new PaperDollCharacter(config)`：创建角色实例（可传入 `preset`、`skin`、`slots`、`palettes`、`direction`、`action`）。
-- `char.setSlot(slotId, partId)`：替换指定槽位部件（17 个槽位见 `PaperDollKit.SLOTS`）。
-- `char.setPalette(slotId, paletteId)` / `char.setAllClothingPalette(paletteId)`：为单个槽位或整套服装实时切换色板（10 套色板见 `PaperDollKit.PALETTES`）。
-- `char.setSkin(skinId)`：切换 6 种肤色/原木素体色。
-- `char.setDirection(dir)` / `char.setAction(action)`：切换 8 方向（`S/SW/W/NW/N/NE/E/SE`）与 4 动作（`idle/walk/attack/cheer`），自动按朝向重排 Z-Order。
-- `char.setHandColorBugMode(mode)`：切换 `'none'`（正常肤色通道同步）、`'baked_wood'`（手部写死原木色）、`'dyed_sleeve'`（手部误用衣服主色）。
-- `char.applyPreset(presetId)`：一键加载 `mannequin` 或 16 个角色预设（`PaperDollKit.PRESETS_16`）。
-- `char.toJSON()` / `PaperDollCharacter.fromJSON(json)`：序列化与反序列化角色配置。

@@ -1,0 +1,21 @@
+{
+  "name": "@paperdollkit/core",
+  "version": "2.0.0-alpha.0",
+  "description": "Zero-DOM HD 2D paper-doll IR schema, hierarchical/hybrid animation solver, Mask+Ramp LUT color engine, and runtime character state",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

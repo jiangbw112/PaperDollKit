@@ -1,0 +1,22 @@
+{
+  "name": "paperdollkit-monorepo",
+  "private": true,
+  "version": "2.0.0-alpha.0",
+  "description": "HD 2D isometric modular paper-doll character assembly, Mask+Ramp LUT recoloring, and dual-mode exporter for Godot 4 & Cocos Creator 3.x",
+  "type": "module",
+  "packageManager": "pnpm@12.21.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' build",
+    "typecheck": "pnpm -r --filter './packages/*' typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:legacy": "node legacy/v1/test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}
