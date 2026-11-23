@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PaperDollKit · 纸片人互动工坊</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      font-family: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+      background-color: #0b101b;
+      color: #e2e8f0;
+    }
+    canvas.pixelated {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .stage-grid {
+      background-color: #111827;
+      background-image:
+        linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- 顶部栏 -->
+  <header class="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300 font-bold text-sm shrink-0">
+          17
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-base sm:text-lg font-semibold text-white truncate">PaperDollKit · 纸片人互动工坊</h1>
+          <p class="text-xs text-slate-400 truncate">1 个木头人 → 16 个角色 · 17 槽位分层 · 10 色板 LUT · 8 方向 × 4 动作</p>
+        </div>
+      </div>
+
+      <!-- 模式切换 + 导出 -->
+      <div class="flex items-center gap-2">
+        <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-800" role="group" aria-label="演示与交互模式">
+          <button id="btnModeDemo" type="button" class="px-3 py-1.5 text-xs font-medium rounded-md transition bg-amber-500 text-slate-950">
+            看演示
+          </button>
+          <button id="btnModePlay" type="button" class="px-3 py-1.5 text-xs font-medium rounded-md transition text-slate-300 hover:text-white">
+            自己玩
+          </button>
+        </div>
+        <button id="btnExportModal" type="button" class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 transition">
+          导出代码 / PNG
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 章节导航条 -->
+    <div class="max-w-7xl mx-auto px-4 pb-2.5 flex items-center gap-2 overflow-x-auto custom-scroll">
+      <button type="button" data-chapter="0" class="chapter-tab px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition bg-slate-800 text-amber-300 border border-amber-500/40">
+        1 · 拼装 (17槽位)
+      </button>
+      <button type="button" data-chapter="1" class="chapter-tab px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200">
+        2 · 换色 (10色板)
+      </button>
+      <button type="button" data-chapter="2" class="chapter-tab px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200">
+        3 · 动作 (8向×4动)
+      </button>
+      <button type="button" data-chapter="3" class="chapter-tab px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200">
+        4 · 手的颜色 (避坑)
+      </button>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="max-w-7xl w-full mx-auto px-4 py-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <!-- 左侧：主舞台 + 实时状态 + 16 角色墙 -->
+    <section class="lg:col-span-7 flex flex-col gap-4">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 overflow-hidden flex flex-col">
+        <!-- 舞台顶部信息条 -->
+        <div class="px-4 py-2.5 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-2">
+            <span id="badgeMode" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">演示中</span>
+            <span id="stageCaption" class="text-slate-300">点击画面或按空格暂停；随时切到「自己玩」动手改。</span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-400 font-mono">
+            <span id="statLayers">图层 12/17</span>
+            <span>·</span>
+            <span id="statDirAct">正 (南) / 待机</span>
+          </div>
+        </div>
+
+        <!-- 主画布区 -->
+        <div class="relative stage-grid flex items-center justify-center min-h-[300px] sm:min-h-[360px] select-none">
+          <canvas id="mainCanvas" width="640" height="360" class="pixelated w-full max-w-[640px] h-auto cursor-pointer"></canvas>
+
+          <!-- 手部放大镜（仅在第 4 章显示） -->
+          <div id="handLoupeBox" class="hidden absolute top-3 right-3 rounded-xl border border-amber-400/50 bg-slate-950/90 p-2 shadow-xl text-center">
+            <div class="text-[11px] text-amber-300 font-medium mb-1">手部特写 ×14</div>
+            <canvas id="loupeCanvas" width="96" height="96" class="pixelated rounded-lg bg-slate-900 border border-slate-800"></canvas>
+            <div id="loupeStatus" class="text-[10px] mt-1 font-medium text-emerald-400">肤色已同步</div>
+          </div>
+
+          <!-- 暂停浮层提示 -->
+          <div id="pausedBadge" class="hidden absolute bottom-3 left-3 px-2.5 py-1 rounded-md bg-slate-950/85 border border-slate-700 text-xs text-slate-300">
+            已暂停（按空格或点击继续）
+          </div>
+        </div>
+
+        <!-- 舞台底部控制条 -->
+        <div class="px-4 py-3 border-t border-slate-800 bg-slate-950/60 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <button id="btnPlayPause" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white transition">
+              暂停
+            </button>
+            <button id="btnRandomize" type="button" class="px-3 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-xs font-medium text-white transition">
+              随机拼装
+            </button>
+            <button id="btnResetMannequin" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition">
+              还原木头人
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 text-xs text-slate-300">
+            <label for="explodeSlider" class="whitespace-nowrap">分层展开</label>
+            <input id="explodeSlider" type="range" min="0" max="28" value="0" class="w-24 sm:w-32 accent-amber-400 cursor-pointer" />
+            <span id="explodeVal" class="font-mono text-slate-400 w-7 text-right">0px</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1 个木头人 → 16 个角色预设墙 -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-white">1 个木头人 → 16 个角色</h2>
+            <p class="text-xs text-slate-400">全部由同一套 17 槽位素材 + 10 套色板组合而成，点击任意角色即时切换</p>
+          </div>
+          <span id="activePresetName" class="text-xs font-medium text-amber-300">01 · 钴蓝骑士</span>
+        </div>
+        <div id="presetGrid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-4 xl:grid-cols-6 gap-2"></div>
+      </div>
+    </section>
+
+    <!-- 右侧：按章节切换的精细控制面板 -->
+    <aside class="lg:col-span-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 flex flex-col gap-4 h-fit">
+      <!-- 第 1 章：17 槽位拼装面板 -->
+      <div id="panelChapter0" class="chapter-panel flex flex-col gap-3">
+        <div>
+          <h2 class="text-sm font-semibold text-white">1 · 17 个槽位自由拼装</h2>
+          <p class="text-xs text-slate-400 mt-0.5">像贴纸一样按顺序叠加每个部件；可单独切换部件样式或显隐图层。</p>
+        </div>
+        <div id="slotList" class="flex flex-col gap-2 max-h-[520px] overflow-y-auto pr-1 custom-scroll"></div>
+      </div>
+
+      <!-- 第 2 章：10 色板 LUT 换色面板 -->
+      <div id="panelChapter1" class="chapter-panel hidden flex flex-col gap-4">
+        <div>
+          <h2 class="text-sm font-semibold text-white">2 · 索引色调色板（LUT）实时换色</h2>
+          <p class="text-xs text-slate-400 mt-0.5">部件不存死 RGB，只存 4 阶亮度索引；换一张色板就能把同一件衣服变成 10 种颜色。</p>
+        </div>
+
+        <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-3">
+          <div class="text-xs font-medium text-slate-300 mb-2">一键切换整套服装色板（10 色）</div>
+          <div id="globalPaletteGrid" class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-2 gap-2"></div>
+        </div>
+
+        <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-3">
+          <div class="text-xs font-medium text-slate-300 mb-2">切换角色肤色 / 素体色（6 色）</div>
+          <div id="skinGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+        </div>
+
+        <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-300">单槽位独立改色</span>
+            <select id="singleColorSlotSelect" class="bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-200"></select>
+          </div>
+          <div id="singleSlotPaletteRow" class="flex flex-wrap gap-1.5"></div>
+        </div>
+      </div>
+
+      <!-- 第 3 章：8 方向 × 4 动作控制面板 -->
+      <div id="panelChapter2" class="chapter-panel hidden flex flex-col gap-4">
+        <div>
+          <h2 class="text-sm font-semibold text-white">3 · 8 方向 × 4 动作与动态 Z-Order</h2>
+          <p class="text-xs text-slate-400 mt-0.5">换装后所有方向与动作自动复用；转向背面时，披风和背饰会自动重排到身体前方。</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- 8 方向罗盘 -->
+          <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-3">
+            <div class="text-xs font-medium text-slate-300 mb-2">8 方向选择</div>
+            <div id="dirCompass" class="grid grid-cols-3 gap-1.5"></div>
+          </div>
+
+          <!-- 4 动作选择 -->
+          <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-3 flex flex-col justify-between">
+            <div>
+              <div class="text-xs font-medium text-slate-300 mb-2">4 种动作</div>
+              <div id="actionList" class="grid grid-cols-2 gap-1.5"></div>
+            </div>
+            <button id="btnAutoSpin" type="button" class="mt-3 w-full py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-xs text-slate-200 transition">
+              开启自动 8 向旋转
+            </button>
+          </div>
+        </div>
+
+        <!-- 实时渲染层级栈 -->
+        <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-300">当前朝向 Z-Order 渲染顺序（底 → 顶）</span>
+            <span id="zOrderDirTag" class="text-[11px] font-mono text-amber-300">S</span>
+          </div>
+          <div id="zOrderList" class="flex flex-wrap gap-1"></div>
+        </div>
+      </div>
+
+      <!-- 第 4 章：手的颜色坑演示与修复面板 -->
+      <div id="panelChapter3" class="chapter-panel hidden flex flex-col gap-4">
+        <div>
+          <h2 class="text-sm font-semibold text-white">4 · 经典坑：「手没跟着变色」怎么来的？</h2>
+          <p class="text-xs text-slate-400 mt-0.5">在纸娃娃系统里，手臂图层往往同时包含「袖子」和「手掌」。如果像素通道没拆开，就会踩坑。</p>
+        </div>
+
+        <div class="flex flex-col gap-2" id="handBugModeGroup">
+          <button type="button" data-bug-mode="baked_wood" class="bug-mode-btn text-left p-3 rounded-xl border border-slate-800 bg-slate-950/70 hover:border-rose-500/50 transition">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-rose-300">踩坑 A：手部写死原木色</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300">Bug</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">美术把手画在袖子图里并写死颜色，切换角色肤色时，脸变黑了手还是原木色。</p>
+          </button>
+
+          <button type="button" data-bug-mode="dyed_sleeve" class="bug-mode-btn text-left p-3 rounded-xl border border-slate-800 bg-slate-950/70 hover:border-amber-500/50 transition">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-amber-300">踩坑 B：手部误用衣服主色</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">Bug</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">手掌和袖子共用了衣服色板通道，衣服换成紫罗兰或绯红时，手也跟着染成紫手/红手。</p>
+          </button>
+
+          <button type="button" data-bug-mode="none" class="bug-mode-btn text-left p-3 rounded-xl border border-emerald-500/50 bg-emerald-950/30 transition">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-emerald-300">修复方案：手部走独立肤色通道（LUT 9..12）</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Fixed</span>
+            </div>
+            <p class="text-[11px] text-slate-300 mt-1">袖子像素用索引 1..4（服装色板），手掌像素用索引 9..12（继承角色肤色），互不干扰。</p>
+          </button>
+        </div>
+
+        <div class="rounded-xl bg-slate-950/70 border border-slate-800 p-3">
+          <div class="text-xs font-medium text-slate-300 mb-2">快速切肤色 & 衣服色，观察右上角手部特写</div>
+          <div class="flex flex-wrap gap-1.5 mb-2" id="chapter4SkinRow"></div>
+          <div class="flex flex-wrap gap-1.5" id="chapter4ClothRow"></div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 导出弹窗 -->
+  <div id="exportModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-white">导出角色配置与接入代码</h3>
+        <button id="btnCloseExport" type="button" class="text-slate-400 hover:text-white text-sm px-2 py-1">✕</button>
+      </div>
+      <div>
+        <div class="text-xs text-slate-400 mb-1.5">JS 接入示例（配合 paperdoll.js 使用）：</div>
+        <pre id="exportCodePre" class="text-[11px] font-mono bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-x-auto max-h-60 text-emerald-300"></pre>
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <button id="btnDownloadPng" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white transition">
+          下载透明背景 PNG
+        </button>
+        <button id="btnCopyJson" type="button" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-semibold text-slate-950 transition">
+          复制代码片段
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 轻提示 Toast -->
+  <div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-800 border border-slate-600 text-xs text-white shadow-lg"></div>
+
+  <!-- 内联 PaperDollKit 核心库 -->
+  <script>
+/**
+ * PaperDollKit v1.0.0 — 零依赖 2D 分层纸片人核心库
+ * 特性：
+ * - 17 槽位贴纸式分层渲染，支持 8 方向动态 Z-Order 排序
+ * - 索引色调色板映射（LUT），同一部件瞬间切换 10 套色板与 6 种肤色
+ * - 8 方向 × 4 动作（idle / walk / attack / cheer）动画状态机
+ * - 内置「手部未随肤色同步」经典坑复现与语义通道修复开关
+ * - 1 个木头人素体组合出 16 个完整角色预设
+ * - 支持直接传入 Canvas 2D 上下文渲染，也支持在 Node.js 中无头运行状态与数据逻辑
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) {
+    module.exports = factory();
+  } else {
+    root.PaperDollKit = factory();
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  // =========================================================================
+  // 1. 常量定义：17 个槽位、8 方向、4 动作、10 色板、6 肤色
+  // =========================================================================
+
+  const SLOTS = [
+    { id: 'shadow',      name: '脚底阴影', category: '基础', colorable: false, required: true },
+    { id: 'back_cape',   name: '披风斗篷', category: '背饰', colorable: true,  required: false },
+    { id: 'back_prop',   name: '背部挂件', category: '背饰', colorable: true,  required: false },
+    { id: 'body_base',   name: '木头人素体', category: '基础', colorable: false, required: true },
+    { id: 'legs_bottom', name: '下装裤裙', category: '服装', colorable: true,  required: false },
+    { id: 'feet_shoes',  name: '鞋靴',     category: '服装', colorable: true,  required: false },
+    { id: 'torso_top',   name: '上衣护甲', category: '服装', colorable: true,  required: false },
+    { id: 'belt_waist',  name: '腰带饰带', category: '服装', colorable: true,  required: false },
+    { id: 'back_arm',    name: '远侧手臂', category: '肢体', colorable: true,  required: true },
+    { id: 'head_base',   name: '头部素体', category: '基础', colorable: false, required: true },
+    { id: 'face_eyes',   name: '五官表情', category: '面部', colorable: false, required: false },
+    { id: 'face_beard',  name: '胡须面饰', category: '面部', colorable: true,  required: false },
+    { id: 'hair_style',  name: '发型',     category: '头部', colorable: true,  required: false },
+    { id: 'head_hat',    name: '帽子头盔', category: '头部', colorable: true,  required: false },
+    { id: 'front_arm',   name: '近侧手臂', category: '肢体', colorable: true,  required: true },
+    { id: 'main_hand',   name: '主手装备', category: '装备', colorable: true,  required: false },
+    { id: 'off_hand',    name: '副手装备', category: '装备', colorable: true,  required: false },
+  ];
+
+  const DIRECTIONS = [
+    { id: 'S',  label: '正 (南)', angle: 0,   facingBack: false, flipX: false, side: 0 },
+    { id: 'SW', label: '左前',    angle: 45,  facingBack: false, flipX: true,  side: -1 },
+    { id: 'W',  label: '左 (西)', angle: 90,  facingBack: false, flipX: true,  side: -2 },
+    { id: 'NW', label: '左后',    angle: 135, facingBack: true,  flipX: true,  side: -1 },
+    { id: 'N',  label: '背 (北)', angle: 180, facingBack: true,  flipX: false, side: 0 },
+    { id: 'NE', label: '右后',    angle: 225, facingBack: true,  flipX: false, side: 1 },
+    { id: 'E',  label: '右 (东)', angle: 270, facingBack: false, flipX: false, side: 2 },
+    { id: 'SE', label: '右前',    angle: 315, facingBack: false, flipX: false, side: 1 },
+  ];
+
+  const ACTIONS = [
+    { id: 'idle',   label: '待机', frames: 4, fps: 4 },
+    { id: 'walk',   label: '行走', frames: 6, fps: 8 },
+    { id: 'attack', label: '挥击', frames: 4, fps: 8 },
+    { id: 'cheer',  label: '欢呼', frames: 4, fps: 6 },
+  ];
+
+  // 10 套调色板：每套含主色 4 阶（描边/暗/基/亮）+ 辅色 4 阶（描边/暗/基/亮）
+  const PALETTES = {
+    crimson:  { id: 'crimson',  name: '绯红卫士', swatch: '#d63e47', primary: ['#4a1218', '#99222b', '#d63e47', '#f47b82'], secondary: ['#4a3412', '#9e7020', '#dfa638', '#fae08c'] },
+    cobalt:   { id: 'cobalt',   name: '钴蓝骑士', swatch: '#2e6bd1', primary: ['#10224a', '#1d4694', '#2e6bd1', '#73a7f5'], secondary: ['#2c3645', '#64748b', '#94a3b8', '#e2e8f0'] },
+    emerald:  { id: 'emerald',  name: '翡翠游侠', swatch: '#29965d', primary: ['#0e3823', '#1b6640', '#29965d', '#68cf96'], secondary: ['#3d2514', '#754927', '#a66b3c', '#d49d6a'] },
+    amber:    { id: 'amber',    name: '琥珀商旅', swatch: '#d98a1e', primary: ['#4a2b08', '#995b10', '#d98a1e', '#f7c15e'], secondary: ['#263d3b', '#3f6965', '#5d9690', '#9fd1cb'] },
+    violet:   { id: 'violet',   name: '紫罗兰法', swatch: '#7c47d6', primary: ['#26124a', '#522999', '#7c47d6', '#b791f7'], secondary: ['#4a3412', '#a67521', '#e8b343', '#fce49d'] },
+    obsidian: { id: 'obsidian', name: '曜石暗影', swatch: '#394152', primary: ['#11141c', '#232836', '#394152', '#64708a'], secondary: ['#4a1220', '#8f223b', '#cf3c5e', '#f27995'] },
+    ivory:    { id: 'ivory',    name: '象牙圣殿', swatch: '#d9d4c7', primary: ['#3d3a33', '#8c8679', '#d9d4c7', '#f7f5ee'], secondary: ['#1c3c6e', '#2e61ad', '#4c88e0', '#96c0fa'] },
+    bronze:   { id: 'bronze',   name: '青铜工匠', swatch: '#a8653e', primary: ['#3b2012', '#734125', '#a8653e', '#d69974'], secondary: ['#262c36', '#4c5769', '#78859c', '#b4c0d4'] },
+    sakura:   { id: 'sakura',   name: '樱粉庆典', swatch: '#e06b98', primary: ['#4d1a2f', '#a33e67', '#e06b98', '#faa7c7'], secondary: ['#3b3629', '#8c8369', '#e3d9be', '#fcf9f0'] },
+    frost:    { id: 'frost',    name: '冰霜北境', swatch: '#3da8c4', primary: ['#103542', '#226f85', '#3da8c4', '#8fe0f5'], secondary: ['#293342', '#526582', '#8299ba', '#cfe0f7'] },
+  };
+
+  // 6 种肤色/木质素体色板（4 阶：描边/暗/基/亮）
+  const SKINS = {
+    wood:   { id: 'wood',   name: '原木木头人', swatch: '#cfa06b', ramp: ['#4f3319', '#996a3b', '#cfa06b', '#edd0a4'] },
+    fair:   { id: 'fair',   name: '暖白肤色',   swatch: '#f2c6a0', ramp: ['#5c3824', '#c9906b', '#f2c6a0', '#ffe3c9'] },
+    tan:    { id: 'tan',    name: '小麦肤色',   swatch: '#d69b6b', ramp: ['#4d2c16', '#a36b41', '#d69b6b', '#f0bf92'] },
+    bronze: { id: 'bronze', name: '古铜肤色',   swatch: '#a66b46', ramp: ['#3b1f0f', '#78472a', '#a66b46', '#c98e67'] },
+    deep:   { id: 'deep',   name: '深棕肤色',   swatch: '#6e422b', ramp: ['#261209', '#4d2b1a', '#6e422b', '#946146'] },
+    elf:    { id: 'elf',    name: '月影精灵',   swatch: '#9eb8d6', ramp: ['#28364a', '#6c85a6', '#9eb8d6', '#cfe1f5'] },
+  };
+
+  // 部件库（17 个槽位对应的可选样式）
+  const PARTS = {
+    shadow:      [{ id: 'oval', name: '椭圆投影' }],
+    back_cape:   [
+      { id: 'none', name: '无' },
+      { id: 'short_cape', name: '短披风' },
+      { id: 'long_cloak', name: '长斗篷' },
+      { id: 'scarf', name: '飘逸围巾' },
+    ],
+    back_prop:   [
+      { id: 'none', name: '无' },
+      { id: 'quiver', name: '箭袋' },
+      { id: 'backpack', name: '行囊' },
+      { id: 'wings', name: '羽翼' },
+    ],
+    body_base:   [{ id: 'mannequin', name: '标准木头人' }],
+    legs_bottom: [
+      { id: 'none', name: '无（素体）' },
+      { id: 'pants', name: '长裤' },
+      { id: 'greaves', name: '重甲护腿' },
+      { id: 'robe_skirt', name: '法袍下摆' },
+    ],
+    feet_shoes:  [
+      { id: 'none', name: '无（赤足）' },
+      { id: 'boots', name: '皮靴' },
+      { id: 'sabaton', name: '铁甲靴' },
+      { id: 'sandals', name: '绑带凉鞋' },
+    ],
+    torso_top:   [
+      { id: 'none', name: '无（木头人）' },
+      { id: 'tunic', name: '布衣短衫' },
+      { id: 'plate', name: '板甲胸铠' },
+      { id: 'robe', name: '长袍外衣' },
+      { id: 'vest', name: '皮甲马甲' },
+    ],
+    belt_waist:  [
+      { id: 'none', name: '无' },
+      { id: 'leather_belt', name: '扣带皮腰带' },
+      { id: 'sash', name: '布艺束带' },
+      { id: 'gold_belt', name: '圣徽腰带' },
+    ],
+    back_arm:    [
+      { id: 'bare', name: '素体短袖' },
+      { id: 'long_sleeve', name: '长袖上衣' },
+      { id: 'armor_sleeve', name: '臂铠护腕' },
+    ],
+    head_base:   [{ id: 'mannequin_head', name: '标准头型' }],
+    face_eyes:   [
+      { id: 'none', name: '木头人无五官' },
+      { id: 'dot', name: '豆豆眼' },
+      { id: 'sharp', name: '坚毅目光' },
+      { id: 'visor_glow', name: '发光战瞳' },
+      { id: 'glasses', name: '学者眼镜' },
+    ],
+    face_beard:  [
+      { id: 'none', name: '无' },
+      { id: 'goatee', name: '山羊胡' },
+      { id: 'full_beard', name: '络腮大胡' },
+      { id: 'mask', name: '暗影面罩' },
+    ],
+    hair_style:  [
+      { id: 'none', name: '无（光头）' },
+      { id: 'short', name: '短碎发' },
+      { id: 'spiky', name: '刺猬发' },
+      { id: 'long', name: '披肩长发' },
+      { id: 'ponytail', name: '高马尾' },
+      { id: 'bun', name: '发髻' },
+    ],
+    head_hat:    [
+      { id: 'none', name: '无' },
+      { id: 'knight_helm', name: '骑士头盔' },
+      { id: 'wizard_hat', name: '尖顶法师帽' },
+      { id: 'hood', name: '游侠兜帽' },
+      { id: 'pirate_hat', name: '海盗三角帽' },
+      { id: 'crown', name: '黄金王冠' },
+      { id: 'bandana', name: '头巾' },
+    ],
+    front_arm:   [
+      { id: 'bare', name: '素体短袖' },
+      { id: 'long_sleeve', name: '长袖上衣' },
+      { id: 'armor_sleeve', name: '臂铠护腕' },
+    ],
+    main_hand:   [
+      { id: 'none', name: '空手' },
+      { id: 'sword', name: '骑士长剑' },
+      { id: 'staff', name: '秘法长杖' },
+      { id: 'bow', name: '猎手长弓' },
+      { id: 'axe', name: '战斧' },
+      { id: 'dagger', name: '短刃' },
+      { id: 'hammer', name: '锻造铁锤' },
+    ],
+    off_hand:    [
+      { id: 'none', name: '空手' },
+      { id: 'shield', name: '纹章圆盾' },
+      { id: 'book', name: '魔法典籍' },
+      { id: 'lantern', name: '提灯' },
+      { id: 'dagger_off', name: '副手短刃' },
+    ],
+  };
+
+  // =========================================================================
+  // 2. 1 个木头人 + 16 个角色预设
+  // =========================================================================
+
+  const MANNEQUIN_PRESET = {
+    id: 'mannequin',
+    name: '00 · 原木木头人',
+    tag: '基础素体',
+    skin: 'wood',
+    slots: {
+      shadow: 'oval', back_cape: 'none', back_prop: 'none', body_base: 'mannequin',
+      legs_bottom: 'none', feet_shoes: 'none', torso_top: 'none', belt_waist: 'none',
+      back_arm: 'bare', head_base: 'mannequin_head', face_eyes: 'none', face_beard: 'none',
+      hair_style: 'none', head_hat: 'none', front_arm: 'bare', main_hand: 'none', off_hand: 'none',
+    },
+    palettes: {
+      back_cape: 'crimson', back_prop: 'bronze', legs_bottom: 'obsidian', feet_shoes: 'bronze',
+      torso_top: 'cobalt', belt_waist: 'amber', back_arm: 'cobalt', face_beard: 'bronze',
+      hair_style: 'bronze', head_hat: 'cobalt', front_arm: 'cobalt', main_hand: 'cobalt', off_hand: 'cobalt',
+    },
+  };
+
+  const PRESETS_16 = [
+    {
+      id: 'knight', name: '01 · 钴蓝骑士', tag: '重甲坦克', skin: 'fair',
+      slots: { back_cape: 'short_cape', back_prop: 'none', legs_bottom: 'greaves', feet_shoes: 'sabaton', torso_top: 'plate', belt_waist: 'gold_belt', back_arm: 'armor_sleeve', face_eyes: 'sharp', face_beard: 'none', hair_style: 'short', head_hat: 'knight_helm', front_arm: 'armor_sleeve', main_hand: 'sword', off_hand: 'shield' },
+      palettes: { back_cape: 'crimson', legs_bottom: 'cobalt', feet_shoes: 'cobalt', torso_top: 'cobalt', belt_waist: 'amber', back_arm: 'cobalt', hair_style: 'amber', head_hat: 'cobalt', front_arm: 'cobalt', main_hand: 'frost', off_hand: 'cobalt' },
+    },
+    {
+      id: 'mage', name: '02 · 紫罗兰大法师', tag: '元素法术', skin: 'fair',
+      slots: { back_cape: 'long_cloak', back_prop: 'none', legs_bottom: 'robe_skirt', feet_shoes: 'boots', torso_top: 'robe', belt_waist: 'sash', back_arm: 'long_sleeve', face_eyes: 'visor_glow', face_beard: 'full_beard', hair_style: 'long', head_hat: 'wizard_hat', front_arm: 'long_sleeve', main_hand: 'staff', off_hand: 'book' },
+      palettes: { back_cape: 'violet', legs_bottom: 'violet', feet_shoes: 'obsidian', torso_top: 'violet', belt_waist: 'amber', back_arm: 'violet', face_beard: 'ivory', hair_style: 'ivory', head_hat: 'violet', front_arm: 'violet', main_hand: 'amber', off_hand: 'crimson' },
+    },
+    {
+      id: 'ranger', name: '03 · 翡翠游侠', tag: '远程猎手', skin: 'tan',
+      slots: { back_cape: 'short_cape', back_prop: 'quiver', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'vest', belt_waist: 'leather_belt', back_arm: 'long_sleeve', face_eyes: 'sharp', face_beard: 'none', hair_style: 'ponytail', head_hat: 'hood', front_arm: 'long_sleeve', main_hand: 'bow', off_hand: 'none' },
+      palettes: { back_cape: 'emerald', back_prop: 'bronze', legs_bottom: 'bronze', feet_shoes: 'bronze', torso_top: 'emerald', belt_waist: 'bronze', back_arm: 'emerald', hair_style: 'amber', head_hat: 'emerald', front_arm: 'emerald', main_hand: 'bronze' },
+    },
+    {
+      id: 'paladin', name: '04 · 圣殿炽天使', tag: '圣光守护', skin: 'fair',
+      slots: { back_cape: 'long_cloak', back_prop: 'wings', legs_bottom: 'greaves', feet_shoes: 'sabaton', torso_top: 'plate', belt_waist: 'gold_belt', back_arm: 'armor_sleeve', face_eyes: 'dot', face_beard: 'none', hair_style: 'long', head_hat: 'crown', front_arm: 'armor_sleeve', main_hand: 'hammer', off_hand: 'shield' },
+      palettes: { back_cape: 'ivory', back_prop: 'ivory', legs_bottom: 'ivory', feet_shoes: 'amber', torso_top: 'ivory', belt_waist: 'amber', back_arm: 'ivory', hair_style: 'amber', head_hat: 'amber', front_arm: 'ivory', main_hand: 'amber', off_hand: 'ivory' },
+    },
+    {
+      id: 'assassin', name: '05 · 曜石刺客', tag: '潜行双刃', skin: 'tan',
+      slots: { back_cape: 'scarf', back_prop: 'none', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'vest', belt_waist: 'sash', back_arm: 'long_sleeve', face_eyes: 'visor_glow', face_beard: 'mask', hair_style: 'spiky', head_hat: 'hood', front_arm: 'long_sleeve', main_hand: 'dagger', off_hand: 'dagger_off' },
+      palettes: { back_cape: 'crimson', legs_bottom: 'obsidian', feet_shoes: 'obsidian', torso_top: 'obsidian', belt_waist: 'crimson', back_arm: 'obsidian', face_beard: 'obsidian', hair_style: 'obsidian', head_hat: 'obsidian', front_arm: 'obsidian', main_hand: 'frost', off_hand: 'frost' },
+    },
+    {
+      id: 'pirate', name: '06 · 绯红海盗长', tag: '航海冒险', skin: 'bronze',
+      slots: { back_cape: 'none', back_prop: 'none', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'tunic', belt_waist: 'sash', back_arm: 'long_sleeve', face_eyes: 'sharp', face_beard: 'goatee', hair_style: 'long', head_hat: 'pirate_hat', front_arm: 'long_sleeve', main_hand: 'sword', off_hand: 'lantern' },
+      palettes: { legs_bottom: 'obsidian', feet_shoes: 'bronze', torso_top: 'crimson', belt_waist: 'amber', back_arm: 'ivory', face_beard: 'obsidian', hair_style: 'obsidian', head_hat: 'obsidian', front_arm: 'ivory', main_hand: 'cobalt', off_hand: 'amber' },
+    },
+    {
+      id: 'blacksmith', name: '07 · 青铜锻造师', tag: '工坊大师', skin: 'deep',
+      slots: { back_cape: 'none', back_prop: 'backpack', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'vest', belt_waist: 'leather_belt', back_arm: 'bare', face_eyes: 'sharp', face_beard: 'full_beard', hair_style: 'short', head_hat: 'bandana', front_arm: 'bare', main_hand: 'hammer', off_hand: 'none' },
+      palettes: { back_prop: 'bronze', legs_bottom: 'obsidian', feet_shoes: 'bronze', torso_top: 'bronze', belt_waist: 'amber', back_arm: 'bronze', face_beard: 'obsidian', hair_style: 'obsidian', head_hat: 'crimson', front_arm: 'bronze', main_hand: 'obsidian' },
+    },
+    {
+      id: 'frostguard', name: '08 · 北境冰霜卫', tag: '极地重步', skin: 'elf',
+      slots: { back_cape: 'long_cloak', back_prop: 'none', legs_bottom: 'greaves', feet_shoes: 'sabaton', torso_top: 'plate', belt_waist: 'leather_belt', back_arm: 'armor_sleeve', face_eyes: 'visor_glow', face_beard: 'none', hair_style: 'spiky', head_hat: 'knight_helm', front_arm: 'armor_sleeve', main_hand: 'axe', off_hand: 'shield' },
+      palettes: { back_cape: 'frost', legs_bottom: 'frost', feet_shoes: 'cobalt', torso_top: 'frost', belt_waist: 'obsidian', back_arm: 'frost', hair_style: 'ivory', head_hat: 'frost', front_arm: 'frost', main_hand: 'frost', off_hand: 'cobalt' },
+    },
+    {
+      id: 'scholar', name: '09 · 皇家炼金学者', tag: '典籍研习', skin: 'fair',
+      slots: { back_cape: 'none', back_prop: 'backpack', legs_bottom: 'robe_skirt', feet_shoes: 'boots', torso_top: 'robe', belt_waist: 'leather_belt', back_arm: 'long_sleeve', face_eyes: 'glasses', face_beard: 'goatee', hair_style: 'short', head_hat: 'none', front_arm: 'long_sleeve', main_hand: 'lantern', off_hand: 'book' },
+      palettes: { back_prop: 'amber', legs_bottom: 'amber', feet_shoes: 'bronze', torso_top: 'amber', belt_waist: 'bronze', back_arm: 'ivory', face_beard: 'bronze', hair_style: 'bronze', front_arm: 'ivory', main_hand: 'amber', off_hand: 'emerald' },
+    },
+    {
+      id: 'sakura_blade', name: '10 · 樱庭剑客', tag: '轻灵剑舞', skin: 'fair',
+      slots: { back_cape: 'scarf', back_prop: 'none', legs_bottom: 'robe_skirt', feet_shoes: 'sandals', torso_top: 'tunic', belt_waist: 'sash', back_arm: 'long_sleeve', face_eyes: 'dot', face_beard: 'none', hair_style: 'bun', head_hat: 'none', front_arm: 'long_sleeve', main_hand: 'sword', off_hand: 'none' },
+      palettes: { back_cape: 'sakura', legs_bottom: 'obsidian', feet_shoes: 'ivory', torso_top: 'sakura', belt_waist: 'crimson', back_arm: 'sakura', hair_style: 'obsidian', front_arm: 'sakura', main_hand: 'sakura' },
+    },
+    {
+      id: 'viking', name: '11 · 狂怒维京战斧', tag: '近战狂战', skin: 'tan',
+      slots: { back_cape: 'short_cape', back_prop: 'none', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'vest', belt_waist: 'leather_belt', back_arm: 'bare', face_eyes: 'sharp', face_beard: 'full_beard', hair_style: 'spiky', head_hat: 'bandana', front_arm: 'bare', main_hand: 'axe', off_hand: 'shield' },
+      palettes: { back_cape: 'bronze', legs_bottom: 'bronze', feet_shoes: 'obsidian', torso_top: 'crimson', belt_waist: 'bronze', back_arm: 'bronze', face_beard: 'amber', hair_style: 'amber', head_hat: 'crimson', front_arm: 'bronze', main_hand: 'obsidian', off_hand: 'crimson' },
+    },
+    {
+      id: 'desert_nomad', name: '12 · 琥珀沙海行者', tag: '商路护卫', skin: 'bronze',
+      slots: { back_cape: 'scarf', back_prop: 'quiver', legs_bottom: 'pants', feet_shoes: 'sandals', torso_top: 'tunic', belt_waist: 'sash', back_arm: 'long_sleeve', face_eyes: 'sharp', face_beard: 'mask', hair_style: 'none', head_hat: 'hood', front_arm: 'long_sleeve', main_hand: 'bow', off_hand: 'none' },
+      palettes: { back_cape: 'amber', back_prop: 'bronze', legs_bottom: 'ivory', feet_shoes: 'bronze', torso_top: 'amber', belt_waist: 'crimson', back_arm: 'ivory', face_beard: 'amber', head_hat: 'ivory', front_arm: 'ivory', main_hand: 'bronze' },
+    },
+    {
+      id: 'elf_druid', name: '13 · 月影德鲁伊', tag: '自然召唤', skin: 'elf',
+      slots: { back_cape: 'long_cloak', back_prop: 'wings', legs_bottom: 'robe_skirt', feet_shoes: 'sandals', torso_top: 'robe', belt_waist: 'sash', back_arm: 'long_sleeve', face_eyes: 'dot', face_beard: 'none', hair_style: 'long', head_hat: 'crown', front_arm: 'long_sleeve', main_hand: 'staff', off_hand: 'lantern' },
+      palettes: { back_cape: 'emerald', back_prop: 'frost', legs_bottom: 'emerald', feet_shoes: 'bronze', torso_top: 'emerald', belt_waist: 'amber', back_arm: 'emerald', hair_style: 'frost', head_hat: 'emerald', front_arm: 'emerald', main_hand: 'emerald', off_hand: 'frost' },
+    },
+    {
+      id: 'royal_prince', name: '14 · 绯红王储', tag: '王室仪仗', skin: 'deep',
+      slots: { back_cape: 'long_cloak', back_prop: 'none', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'tunic', belt_waist: 'gold_belt', back_arm: 'long_sleeve', face_eyes: 'sharp', face_beard: 'goatee', hair_style: 'short', head_hat: 'crown', front_arm: 'long_sleeve', main_hand: 'sword', off_hand: 'none' },
+      palettes: { back_cape: 'crimson', legs_bottom: 'ivory', feet_shoes: 'obsidian', torso_top: 'crimson', belt_waist: 'amber', back_arm: 'crimson', face_beard: 'obsidian', hair_style: 'obsidian', head_hat: 'amber', front_arm: 'crimson', main_hand: 'amber' },
+    },
+    {
+      id: 'night_witch', name: '15 · 暮色星辰巫女', tag: '暗夜秘术', skin: 'fair',
+      slots: { back_cape: 'short_cape', back_prop: 'none', legs_bottom: 'robe_skirt', feet_shoes: 'boots', torso_top: 'robe', belt_waist: 'sash', back_arm: 'long_sleeve', face_eyes: 'glasses', face_beard: 'none', hair_style: 'ponytail', head_hat: 'wizard_hat', front_arm: 'long_sleeve', main_hand: 'staff', off_hand: 'book' },
+      palettes: { back_cape: 'obsidian', legs_bottom: 'obsidian', feet_shoes: 'sakura', torso_top: 'obsidian', belt_waist: 'sakura', back_arm: 'obsidian', hair_style: 'sakura', head_hat: 'obsidian', front_arm: 'obsidian', main_hand: 'sakura', off_hand: 'violet' },
+    },
+    {
+      id: 'explorer', name: '16 · 极光探险家', tag: '遗迹寻宝', skin: 'tan',
+      slots: { back_cape: 'scarf', back_prop: 'backpack', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'vest', belt_waist: 'leather_belt', back_arm: 'long_sleeve', face_eyes: 'dot', face_beard: 'none', hair_style: 'spiky', head_hat: 'pirate_hat', front_arm: 'long_sleeve', main_hand: 'dagger', off_hand: 'lantern' },
+      palettes: { back_cape: 'frost', back_prop: 'bronze', legs_bottom: 'cobalt', feet_shoes: 'bronze', torso_top: 'amber', belt_waist: 'bronze', back_arm: 'ivory', hair_style: 'bronze', head_hat: 'bronze', front_arm: 'ivory', main_hand: 'frost', off_hand: 'amber' },
+    },
+  ];
+
+  // =========================================================================
+  // 3. 动态 Z-Order 排序（随 8 方向切换渲染层级）
+  // =========================================================================
+
+  function getRenderOrder(directionId) {
+    const dir = DIRECTIONS.find(d => d.id === directionId) || DIRECTIONS[0];
+    if (dir.facingBack) {
+      // 背面朝向：手和武器在前被身体遮挡，披风/背饰覆在最外层
+      return [
+        'shadow',
+        'off_hand',
+        'main_hand',
+        'front_arm',
+        'back_arm',
+        'body_base',
+        'legs_bottom',
+        'feet_shoes',
+        'torso_top',
+        'belt_waist',
+        'head_base',
+        'hair_style',
+        'head_hat',
+        'back_cape',
+        'back_prop',
+      ];
+    }
+    if (Math.abs(dir.side) === 2) {
+      // 纯侧身（东/西）：远侧手臂与副手在躯干后，近侧手臂与主手在最前
+      return [
+        'shadow',
+        'back_prop',
+        'back_cape',
+        'off_hand',
+        'back_arm',
+        'body_base',
+        'legs_bottom',
+        'feet_shoes',
+        'torso_top',
+        'belt_waist',
+        'head_base',
+        'face_eyes',
+        'face_beard',
+        'hair_style',
+        'head_hat',
+        'front_arm',
+        'main_hand',
+      ];
+    }
+    // 正面及斜前（南/西南/东南）
+    return [
+      'shadow',
+      'back_prop',
+      'back_cape',
+      'back_arm',
+      'off_hand',
+      'body_base',
+      'legs_bottom',
+      'feet_shoes',
+      'torso_top',
+      'belt_waist',
+      'head_base',
+      'face_eyes',
+      'face_beard',
+      'hair_style',
+      'head_hat',
+      'front_arm',
+      'main_hand',
+    ];
+  }
+
+  // =========================================================================
+  // 4. 索引色像素绘图工具（32×32 虚拟像素网格）
+  //    索引编码：
+  //      0: 透明
+  //      1..4: 主色阶 (outline, dark, base, light)
+  //      5..8: 辅色阶 (outline, dark, base, light)
+  //      9..12: 肤色阶 (outline, dark, base, light)  <-- 手部语义通道
+  //      13..16: 金属/中性色阶 (outline, dark, base, light)
+  //      17: 阴影半透明黑
+  //      18: 纯白高光 / 眼白
+  //      19: 深炭黑瞳孔
+  // =========================================================================
+
+  const GRID = 32;
+  const METAL_RAMP = ['#1e2430', '#5a667a', '#9aa8bd', '#e2eaf5'];
+
+  function createGrid() {
+    return new Uint8Array(GRID * GRID);
+  }
+
+  function px(grid, x, y, c) {
+    const ix = Math.round(x);
+    const iy = Math.round(y);
+    if (ix >= 0 && ix < GRID && iy >= 0 && iy < GRID) {
+      grid[iy * GRID + ix] = c;
+    }
+  }
+
+  function rect(grid, x, y, w, h, c) {
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        px(grid, x + dx, y + dy, c);
+      }
+    }
+  }
+
+  function outlinedRect(grid, x, y, w, h, outline, dark, base, light) {
+    rect(grid, x, y, w, h, outline);
+    if (w > 2 && h > 2) {
+      rect(grid, x + 1, y + 1, w - 2, h - 2, base);
+      // 顶部高光与底部阴影
+      rect(grid, x + 1, y + 1, w - 2, 1, light);
+      rect(grid, x + 1, y + h - 2, w - 2, 1, dark);
+    }
+  }
+
+  // 动作帧位姿计算（返回各部位像素级偏移）
+  function computePose(actionId, frameIndex, dir) {
+    const f = frameIndex;
+    let bodyY = 0;
+    let headY = 0;
+    let leftLegY = 0, rightLegY = 0, leftLegX = 0, rightLegX = 0;
+    let frontArmY = 0, frontArmX = 0, backArmY = 0, backArmX = 0;
+    let weaponX = 0, weaponY = 0, weaponSwing = 0;
+    let capeSway = 0;
+
+    if (actionId === 'idle') {
+      const bob = (f === 1 || f === 2) ? 1 : 0;
+      bodyY = bob;
+      headY = bob;
+      frontArmY = bob;
+      backArmY = bob;
+      capeSway = (f === 2) ? 1 : 0;
+    } else if (actionId === 'walk') {
+      const cycle = [0, -1, 0, 0, -1, 0];
+      bodyY = cycle[f % 6];
+      headY = bodyY;
+      const stride = [0, 1, 2, 0, -1, -2][f % 6];
+      leftLegX = stride;
+      rightLegX = -stride;
+      leftLegY = stride > 0 ? -1 : 0;
+      rightLegY = stride < 0 ? -1 : 0;
+      frontArmX = -Math.sign(stride);
+      backArmX = Math.sign(stride);
+      frontArmY = bodyY;
+      backArmY = bodyY;
+      capeSway = (f % 3 === 1) ? 1 : (f % 3 === 2 ? -1 : 0);
+    } else if (actionId === 'attack') {
+      // 0: 蓄力, 1: 挥出, 2: 延伸, 3: 收招
+      const armDx = [-1, 3, 2, 0][f % 4];
+      const armDy = [-2, 0, 1, 0][f % 4];
+      bodyY = (f === 1) ? 1 : 0;
+      headY = bodyY;
+      frontArmX = armDx;
+      frontArmY = armDy + bodyY;
+      backArmX = -Math.sign(armDx);
+      backArmY = bodyY;
+      weaponX = armDx + (f === 1 ? 2 : 0);
+      weaponY = armDy;
+      weaponSwing = f === 1 ? 1 : (f === 2 ? 2 : 0);
+      capeSway = (f === 1 || f === 2) ? -1 : 0;
+    } else if (actionId === 'cheer') {
+      const jump = [0, -2, -3, -1][f % 4];
+      bodyY = jump;
+      headY = jump;
+      leftLegY = jump < -1 ? -1 : 0;
+      rightLegY = jump < -1 ? -1 : 0;
+      frontArmY = jump - 3;
+      backArmY = jump - 3;
+      frontArmX = 1;
+      backArmX = -1;
+      weaponY = jump - 3;
+      capeSway = (f % 2 === 0) ? 1 : -1;
+    }
+
+    // 侧身视角稍微收敛双腿横向错开
+    if (Math.abs(dir.side) === 2) {
+      leftLegX = Math.round(leftLegX * 1.1);
+      rightLegX = Math.round(rightLegX * 1.1);
+    }
+
+    return {
+      bodyY, headY, leftLegX, leftLegY, rightLegX, rightLegY,
+      frontArmX, frontArmY, backArmX, backArmY, weaponX, weaponY, weaponSwing, capeSway,
+    };
+  }
+
+  // 生成单个槽位在指定方向与动作帧的索引像素网格
+  function rasterizeSlot(slotId, partId, dir, pose, options) {
+    const g = createGrid();
+    if (!partId || partId === 'none') return g;
+
+    const isSide = Math.abs(dir.side) === 2;
+    const isBack = dir.facingBack;
+    const bodyW = isSide ? 8 : 10;
+    const bodyX = isSide ? 12 : 11;
+    const by = pose.bodyY;
+    const hy = pose.headY;
+
+    switch (slotId) {
+      case 'shadow': {
+        rect(g, 9, 28, 14, 3, 17);
+        rect(g, 11, 27, 10, 1, 17);
+        rect(g, 11, 31, 10, 1, 17);
+        break;
+      }
+
+      case 'back_cape': {
+        const sw = pose.capeSway;
+        if (partId === 'short_cape') {
+          outlinedRect(g, bodyX - 2 + sw, 14 + by, bodyW + 4, 8, 1, 2, 3, 4);
+          rect(g, bodyX - 1 + sw, 20 + by, bodyW + 2, 1, 7);
+        } else if (partId === 'long_cloak') {
+          outlinedRect(g, bodyX - 3 + sw, 14 + by, bodyW + 6, 13, 1, 2, 3, 4);
+          rect(g, bodyX - 2 + sw, 25 + by, bodyW + 4, 1, 7);
+        } else if (partId === 'scarf') {
+          outlinedRect(g, bodyX - 1, 13 + by, bodyW + 2, 3, 1, 2, 3, 4);
+          outlinedRect(g, bodyX - 4 + sw, 15 + by, 5, 6, 1, 2, 3, 4);
+          px(g, bodyX - 3 + sw, 20 + by, 7);
+        }
+        break;
+      }
+
+      case 'back_prop': {
+        if (partId === 'quiver') {
+          outlinedRect(g, bodyX + bodyW - 3, 10 + by, 4, 11, 1, 2, 3, 4);
+          px(g, bodyX + bodyW - 2, 9 + by, 18);
+          px(g, bodyX + bodyW, 9 + by, 18);
+        } else if (partId === 'backpack') {
+          outlinedRect(g, isSide ? 8 : 10, 14 + by, isSide ? 5 : 12, 8, 1, 2, 3, 4);
+          rect(g, isSide ? 9 : 12, 16 + by, isSide ? 3 : 8, 2, 7);
+        } else if (partId === 'wings') {
+          // 左右羽翼
+          outlinedRect(g, 4, 11 + by, 7, 9, 1, 2, 3, 4);
+          outlinedRect(g, 21, 11 + by, 7, 9, 1, 2, 3, 4);
+          rect(g, 5, 13 + by, 5, 2, 18);
+          rect(g, 22, 13 + by, 5, 2, 18);
+        }
+        break;
+      }
+
+      case 'body_base': {
+        // 素体躯干 + 双腿（使用肤色阶 9..12）
+        outlinedRect(g, bodyX, 14 + by, bodyW, 9, 9, 10, 11, 12);
+        // 脖子
+        rect(g, 14, 12 + by, 4, 2, 10);
+        // 左腿与右腿
+        const lx = isSide ? 13 + pose.leftLegX : 11 + pose.leftLegX;
+        const rx = isSide ? 15 + pose.rightLegX : 17 + pose.rightLegX;
+        outlinedRect(g, lx, 22 + pose.leftLegY, 4, 7, 9, 10, 11, 12);
+        outlinedRect(g, rx, 22 + pose.rightLegY, 4, 7, 9, 10, 11, 12);
+        break;
+      }
+
+      case 'legs_bottom': {
+        const lx = isSide ? 13 + pose.leftLegX : 11 + pose.leftLegX;
+        const rx = isSide ? 15 + pose.rightLegX : 17 + pose.rightLegX;
+        if (partId === 'pants') {
+          outlinedRect(g, bodyX, 21 + by, bodyW, 3, 1, 2, 3, 4);
+          outlinedRect(g, lx, 22 + pose.leftLegY, 4, 5, 1, 2, 3, 4);
+          outlinedRect(g, rx, 22 + pose.rightLegY, 4, 5, 1, 2, 3, 4);
+        } else if (partId === 'greaves') {
+          outlinedRect(g, bodyX, 21 + by, bodyW, 3, 1, 2, 3, 4);
+          outlinedRect(g, lx, 22 + pose.leftLegY, 4, 6, 1, 2, 3, 4);
+          outlinedRect(g, rx, 22 + pose.rightLegY, 4, 6, 1, 2, 3, 4);
+          px(g, lx + 1, 24 + pose.leftLegY, 8);
+          px(g, rx + 1, 24 + pose.rightLegY, 8);
+        } else if (partId === 'robe_skirt') {
+          outlinedRect(g, bodyX - 1, 21 + by, bodyW + 2, 7, 1, 2, 3, 4);
+          rect(g, bodyX, 26 + by, bodyW, 1, 7);
+        }
+        break;
+      }
+
+      case 'feet_shoes': {
+        const lx = isSide ? 13 + pose.leftLegX : 11 + pose.leftLegX;
+        const rx = isSide ? 15 + pose.rightLegX : 17 + pose.rightLegX;
+        if (partId === 'boots') {
+          outlinedRect(g, lx, 26 + pose.leftLegY, 4, 3, 1, 2, 3, 4);
+          outlinedRect(g, rx, 26 + pose.rightLegY, 4, 3, 1, 2, 3, 4);
+        } else if (partId === 'sabaton') {
+          outlinedRect(g, lx, 25 + pose.leftLegY, 4, 4, 1, 2, 3, 4);
+          outlinedRect(g, rx, 25 + pose.rightLegY, 4, 4, 1, 2, 3, 4);
+          px(g, lx + 1, 26 + pose.leftLegY, 8);
+          px(g, rx + 1, 26 + pose.rightLegY, 8);
+        } else if (partId === 'sandals') {
+          rect(g, lx, 28 + pose.leftLegY, 4, 1, 1);
+          rect(g, rx, 28 + pose.rightLegY, 4, 1, 1);
+          rect(g, lx + 1, 27 + pose.leftLegY, 2, 1, 7);
+          rect(g, rx + 1, 27 + pose.rightLegY, 2, 1, 7);
+        }
+        break;
+      }
+
+      case 'torso_top': {
+        if (partId === 'tunic') {
+          outlinedRect(g, bodyX, 14 + by, bodyW, 8, 1, 2, 3, 4);
+          rect(g, bodyX + Math.floor(bodyW / 2) - 1, 14 + by, 2, 3, 7);
+        } else if (partId === 'plate') {
+          outlinedRect(g, bodyX - 1, 14 + by, bodyW + 2, 8, 1, 2, 3, 4);
+          rect(g, bodyX + 1, 16 + by, bodyW - 2, 2, 8);
+          rect(g, bodyX + Math.floor(bodyW / 2) - 1, 15 + by, 2, 5, 7);
+        } else if (partId === 'robe') {
+          outlinedRect(g, bodyX, 14 + by, bodyW, 9, 1, 2, 3, 4);
+          rect(g, bodyX + Math.floor(bodyW / 2) - 1, 14 + by, 2, 8, 7);
+        } else if (partId === 'vest') {
+          outlinedRect(g, bodyX, 14 + by, bodyW, 8, 1, 2, 3, 4);
+          rect(g, bodyX + 2, 15 + by, bodyW - 4, 6, 7);
+        }
+        break;
+      }
+
+      case 'belt_waist': {
+        if (partId === 'leather_belt') {
+          rect(g, bodyX, 20 + by, bodyW, 2, 1);
+          rect(g, bodyX + 1, 20 + by, bodyW - 2, 2, 3);
+          rect(g, 15, 20 + by, 2, 2, 8);
+        } else if (partId === 'sash') {
+          rect(g, bodyX, 20 + by, bodyW, 2, 3);
+          rect(g, bodyX + 1, 21 + by, 2, 3, 4);
+        } else if (partId === 'gold_belt') {
+          rect(g, bodyX, 20 + by, bodyW, 2, 5);
+          rect(g, bodyX + 1, 20 + by, bodyW - 2, 2, 7);
+          rect(g, 15, 19 + by, 2, 3, 8);
+        }
+        break;
+      }
+
+      case 'back_arm':
+      case 'front_arm': {
+        const isFront = slotId === 'front_arm';
+        const ax = isFront
+          ? (isSide ? 15 : bodyX + bodyW - 1) + pose.frontArmX
+          : (isSide ? 12 : bodyX - 3) + pose.backArmX;
+        const ay = 14 + (isFront ? pose.frontArmY : pose.backArmY);
+
+        // 关键：手部颜色通道（演示「手没跟着变色」的坑与修复）
+        // 正常修复：手部使用肤色通道 9..12（会随肤色 LUT 自动同步）
+        // 坑模式 baked_wood：美术把原木色写死在手部（通过特殊标记在渲染阶段强制走原木色）
+        // 坑模式 dyed_sleeve：美术把手画在袖子图层里，换衣服颜色时手也跟着染成衣服色 1..4
+        const handBug = options && options.handColorBugMode ? options.handColorBugMode : 'none';
+        const handOutline = handBug === 'dyed_sleeve' ? 1 : 9;
+        const handDark    = handBug === 'dyed_sleeve' ? 2 : 10;
+        const handBase    = handBug === 'dyed_sleeve' ? 3 : 11;
+        const handLight   = handBug === 'dyed_sleeve' ? 4 : 12;
+
+        if (partId === 'bare') {
+          outlinedRect(g, ax, ay, 4, 5, handOutline, handDark, handBase, handLight);
+          outlinedRect(g, ax, ay + 4, 4, 3, handOutline, handDark, handBase, handLight);
+        } else if (partId === 'long_sleeve') {
+          outlinedRect(g, ax, ay, 4, 5, 1, 2, 3, 4);
+          // 露出手掌 4×3
+          outlinedRect(g, ax, ay + 4, 4, 3, handOutline, handDark, handBase, handLight);
+        } else if (partId === 'armor_sleeve') {
+          outlinedRect(g, ax, ay, 4, 5, 1, 2, 3, 4);
+          px(g, ax + 1, ay + 1, 8);
+          // 露指护手（手掌部分）
+          outlinedRect(g, ax, ay + 4, 4, 3, handOutline, handDark, handBase, handLight);
+        }
+        break;
+      }
+
+      case 'head_base': {
+        outlinedRect(g, 11, 5 + hy, 10, 8, 9, 10, 11, 12);
+        break;
+      }
+
+      case 'face_eyes': {
+        if (isBack) break;
+        const ex = isSide ? 16 : 13;
+        const ex2 = isSide ? 19 : 18;
+        if (partId === 'dot') {
+          rect(g, ex, 8 + hy, 1, 2, 19);
+          if (!isSide) rect(g, ex2, 8 + hy, 1, 2, 19);
+        } else if (partId === 'sharp') {
+          rect(g, ex - 1, 8 + hy, 2, 1, 19);
+          px(g, ex, 9 + hy, 19);
+          if (!isSide) {
+            rect(g, ex2, 8 + hy, 2, 1, 19);
+            px(g, ex2, 9 + hy, 19);
+          }
+        } else if (partId === 'visor_glow') {
+          rect(g, ex, 8 + hy, 2, 2, 18);
+          if (!isSide) rect(g, ex2 - 1, 8 + hy, 2, 2, 18);
+        } else if (partId === 'glasses') {
+          rect(g, ex - 1, 8 + hy, 3, 2, 13);
+          px(g, ex, 8 + hy, 18);
+          if (!isSide) {
+            rect(g, ex + 2, 8 + hy, 2, 1, 13);
+            rect(g, ex2 - 1, 8 + hy, 3, 2, 13);
+            px(g, ex2, 8 + hy, 18);
+          }
+        }
+        break;
+      }
+
+      case 'face_beard': {
+        if (isBack) break;
+        if (partId === 'goatee') {
+          rect(g, 15, 11 + hy, 3, 2, 2);
+          px(g, 16, 13 + hy, 1);
+        } else if (partId === 'full_beard') {
+          outlinedRect(g, 12, 10 + hy, 8, 5, 1, 2, 3, 4);
+        } else if (partId === 'mask') {
+          outlinedRect(g, 11, 10 + hy, 10, 3, 1, 2, 3, 4);
+        }
+        break;
+      }
+
+      case 'hair_style': {
+        if (partId === 'short') {
+          outlinedRect(g, 10, 4 + hy, 12, 4, 1, 2, 3, 4);
+          if (isBack) outlinedRect(g, 11, 6 + hy, 10, 6, 1, 2, 3, 4);
+        } else if (partId === 'spiky') {
+          outlinedRect(g, 10, 4 + hy, 12, 4, 1, 2, 3, 4);
+          rect(g, 11, 2 + hy, 2, 2, 3);
+          rect(g, 15, 1 + hy, 2, 3, 4);
+          rect(g, 19, 2 + hy, 2, 2, 3);
+          if (isBack) outlinedRect(g, 11, 6 + hy, 10, 6, 1, 2, 3, 4);
+        } else if (partId === 'long') {
+          outlinedRect(g, 10, 4 + hy, 12, 4, 1, 2, 3, 4);
+          outlinedRect(g, 9, 6 + hy, 3, 10, 1, 2, 3, 4);
+          outlinedRect(g, 20, 6 + hy, 3, 10, 1, 2, 3, 4);
+          if (isBack) outlinedRect(g, 10, 6 + hy, 12, 10, 1, 2, 3, 4);
+        } else if (partId === 'ponytail') {
+          outlinedRect(g, 10, 4 + hy, 12, 4, 1, 2, 3, 4);
+          outlinedRect(g, isSide ? 7 : 18, 5 + hy, 4, 9, 1, 2, 3, 4);
+          if (isBack) outlinedRect(g, 11, 6 + hy, 10, 6, 1, 2, 3, 4);
+        } else if (partId === 'bun') {
+          outlinedRect(g, 10, 4 + hy, 12, 4, 1, 2, 3, 4);
+          outlinedRect(g, 13, 1 + hy, 6, 4, 1, 2, 3, 4);
+          rect(g, 13, 4 + hy, 6, 1, 7);
+        }
+        break;
+      }
+
+      case 'head_hat': {
+        if (partId === 'knight_helm') {
+          outlinedRect(g, 10, 3 + hy, 12, 7, 1, 2, 3, 4);
+          rect(g, 14, 1 + hy, 4, 2, 7);
+          if (!isBack) rect(g, 12, 8 + hy, 8, 1, 13);
+        } else if (partId === 'wizard_hat') {
+          outlinedRect(g, 8, 5 + hy, 16, 2, 1, 2, 3, 4);
+          outlinedRect(g, 11, 3 + hy, 10, 3, 1, 2, 3, 4);
+          outlinedRect(g, 13, 1 + hy, 6, 3, 1, 2, 3, 4);
+          rect(g, 11, 5 + hy, 10, 1, 7);
+        } else if (partId === 'hood') {
+          outlinedRect(g, 9, 3 + hy, 14, 10, 1, 2, 3, 4);
+          if (!isBack) rect(g, 12, 7 + hy, 8, 5, 0);
+        } else if (partId === 'pirate_hat') {
+          outlinedRect(g, 7, 4 + hy, 18, 3, 1, 2, 3, 4);
+          outlinedRect(g, 11, 2 + hy, 10, 3, 1, 2, 3, 4);
+          rect(g, 15, 3 + hy, 2, 2, 18);
+        } else if (partId === 'crown') {
+          rect(g, 11, 4 + hy, 10, 2, 7);
+          rect(g, 11, 2 + hy, 2, 2, 8);
+          rect(g, 15, 1 + hy, 2, 3, 8);
+          rect(g, 19, 2 + hy, 2, 2, 8);
+          px(g, 15, 4 + hy, 3);
+        } else if (partId === 'bandana') {
+          outlinedRect(g, 10, 4 + hy, 12, 3, 1, 2, 3, 4);
+          rect(g, 21, 5 + hy, 3, 3, 3);
+        }
+        break;
+      }
+
+      case 'main_hand': {
+        const wx = (isSide ? 18 : 21) + pose.weaponX;
+        const wy = 16 + pose.weaponY;
+        const swing = pose.weaponSwing;
+        if (partId === 'sword') {
+          if (swing === 1) {
+            rect(g, wx, wy + 1, 8, 2, 15);
+            rect(g, wx, wy + 1, 8, 1, 16);
+            rect(g, wx - 1, wy, 2, 4, 7);
+          } else {
+            rect(g, wx + 1, wy - 8, 2, 10, 15);
+            rect(g, wx + 1, wy - 8, 1, 10, 16);
+            rect(g, wx - 1, wy + 1, 6, 2, 7);
+            rect(g, wx + 1, wy + 3, 2, 2, 2);
+          }
+        } else if (partId === 'staff') {
+          rect(g, wx + 1, wy - 9, 2, 16, 2);
+          outlinedRect(g, wx, wy - 11, 4, 4, 1, 2, 3, 4);
+          px(g, wx + 1, wy - 10, 18);
+        } else if (partId === 'bow') {
+          rect(g, wx + 1, wy - 5, 2, 11, 2);
+          px(g, wx, wy - 4, 3);
+          px(g, wx, wy + 4, 3);
+          rect(g, wx - 1, wy - 4, 1, 9, 18);
+        } else if (partId === 'axe') {
+          rect(g, wx + 1, wy - 6, 2, 11, 2);
+          outlinedRect(g, wx + 2, wy - 6, 5, 5, 13, 14, 15, 16);
+        } else if (partId === 'dagger') {
+          rect(g, wx + 1, wy - 3, 2, 5, 15);
+          rect(g, wx, wy + 1, 4, 1, 7);
+        } else if (partId === 'hammer') {
+          rect(g, wx + 1, wy - 6, 2, 11, 2);
+          outlinedRect(g, wx - 1, wy - 7, 6, 4, 13, 14, 15, 16);
+        }
+        break;
+      }
+
+      case 'off_hand': {
+        const ox = (isSide ? 11 : 7) + pose.backArmX;
+        const oy = 17 + pose.backArmY;
+        if (partId === 'shield') {
+          outlinedRect(g, ox - 1, oy - 1, 6, 7, 1, 2, 3, 4);
+          rect(g, ox + 1, oy + 1, 2, 3, 8);
+        } else if (partId === 'book') {
+          outlinedRect(g, ox, oy, 5, 6, 1, 2, 3, 4);
+          rect(g, ox + 1, oy + 1, 1, 4, 18);
+        } else if (partId === 'lantern') {
+          rect(g, ox + 1, oy - 1, 2, 1, 13);
+          outlinedRect(g, ox, oy, 4, 5, 13, 14, 7, 8);
+          rect(g, ox + 1, oy + 1, 2, 3, 18);
+        } else if (partId === 'dagger_off') {
+          rect(g, ox + 1, oy - 2, 2, 5, 15);
+          rect(g, ox, oy + 2, 4, 1, 7);
+        }
+        break;
+      }
+    }
+
+    return g;
+  }
+
+  // 解析索引色到实际 Hex 颜色（LUT 映射核心）
+  function resolvePaletteColor(colorIndex, slotId, paletteObj, skinObj, handColorBugMode) {
+    if (colorIndex === 0) return null;
+    if (colorIndex >= 1 && colorIndex <= 4) return paletteObj.primary[colorIndex - 1];
+    if (colorIndex >= 5 && colorIndex <= 8) return paletteObj.secondary[colorIndex - 5];
+    if (colorIndex >= 9 && colorIndex <= 12) {
+      // 复现「手没跟着变色」的坑：手臂槽位被写死成原木色，不跟角色肤色走
+      if ((slotId === 'front_arm' || slotId === 'back_arm') && handColorBugMode === 'baked_wood') {
+        return SKINS.wood.ramp[colorIndex - 9];
+      }
+      return skinObj.ramp[colorIndex - 9];
+    }
+    if (colorIndex >= 13 && colorIndex <= 16) return METAL_RAMP[colorIndex - 13];
+    if (colorIndex === 17) return 'rgba(15, 23, 42, 0.28)';
+    if (colorIndex === 18) return '#ffffff';
+    if (colorIndex === 19) return '#111827';
+    return null;
+  }
+
+  // =========================================================================
+  // 5. 核心类：PaperDollCharacter
+  // =========================================================================
+
+  class PaperDollCharacter {
+    constructor(config = {}) {
+      this.skin = config.skin || 'wood';
+      this.direction = config.direction || 'S';
+      this.action = config.action || 'idle';
+      this.handColorBugMode = config.handColorBugMode || 'none'; // 'none' | 'baked_wood' | 'dyed_sleeve'
+      this.slots = {};
+      this.palettes = {};
+      this.hiddenSlots = new Set();
+
+      // 默认从木头人素体初始化
+      for (const s of SLOTS) {
+        this.slots[s.id] = MANNEQUIN_PRESET.slots[s.id];
+        this.palettes[s.id] = MANNEQUIN_PRESET.palettes[s.id] || 'cobalt';
+      }
+
+      if (config.preset) {
+        this.applyPreset(config.preset);
+      }
+      if (config.slots) {
+        Object.assign(this.slots, config.slots);
+      }
+      if (config.palettes) {
+        Object.assign(this.palettes, config.palettes);
+      }
+    }
+
+    setSlot(slotId, partId) {
+      if (!PARTS[slotId]) throw new Error(`Unknown slot: ${slotId}`);
+      const valid = PARTS[slotId].some(p => p.id === partId);
+      if (!valid) throw new Error(`Unknown part "${partId}" for slot "${slotId}"`);
+      this.slots[slotId] = partId;
+      return this;
+    }
+
+    setPalette(slotId, paletteId) {
+      if (!PALETTES[paletteId]) throw new Error(`Unknown palette: ${paletteId}`);
+      this.palettes[slotId] = paletteId;
+      return this;
+    }
+
+    setAllClothingPalette(paletteId) {
+      if (!PALETTES[paletteId]) throw new Error(`Unknown palette: ${paletteId}`);
+      const targets = ['back_cape', 'legs_bottom', 'feet_shoes', 'torso_top', 'belt_waist', 'back_arm', 'front_arm', 'head_hat'];
+      for (const id of targets) {
+        this.palettes[id] = paletteId;
+      }
+      return this;
+    }
+
+    setSkin(skinId) {
+      if (!SKINS[skinId]) throw new Error(`Unknown skin: ${skinId}`);
+      this.skin = skinId;
+      return this;
+    }
+
+    setDirection(directionId) {
+      if (!DIRECTIONS.some(d => d.id === directionId)) {
+        throw new Error(`Unknown direction: ${directionId}`);
+      }
+      this.direction = directionId;
+      return this;
+    }
+
+    setAction(actionId) {
+      if (!ACTIONS.some(a => a.id === actionId)) {
+        throw new Error(`Unknown action: ${actionId}`);
+      }
+      this.action = actionId;
+      return this;
+    }
+
+    setHandColorBugMode(mode) {
+      const valid = ['none', 'baked_wood', 'dyed_sleeve'];
+      if (!valid.includes(mode)) throw new Error(`Invalid handColorBugMode: ${mode}`);
+      this.handColorBugMode = mode;
+      return this;
+    }
+
+    setSlotVisible(slotId, visible) {
+      if (visible) this.hiddenSlots.delete(slotId);
+      else this.hiddenSlots.add(slotId);
+      return this;
+    }
+
+    applyPreset(presetId) {
+      const preset = presetId === 'mannequin'
+        ? MANNEQUIN_PRESET
+        : PRESETS_16.find(p => p.id === presetId);
+      if (!preset) throw new Error(`Unknown preset: ${presetId}`);
+
+      this.skin = preset.skin || 'wood';
+      for (const s of SLOTS) {
+        this.slots[s.id] = (preset.slots && preset.slots[s.id] !== undefined)
+          ? preset.slots[s.id]
+          : MANNEQUIN_PRESET.slots[s.id];
+        this.palettes[s.id] = (preset.palettes && preset.palettes[s.id] !== undefined)
+          ? preset.palettes[s.id]
+          : (MANNEQUIN_PRESET.palettes[s.id] || 'cobalt');
+      }
+      return this;
+    }
+
+    randomize(rng = Math.random) {
+      const pick = arr => arr[Math.floor(rng() * arr.length)];
+      const skinKeys = Object.keys(SKINS).filter(k => k !== 'wood');
+      const palKeys = Object.keys(PALETTES);
+      this.skin = pick(skinKeys);
+      const mainPal = pick(palKeys);
+      const accentPal = pick(palKeys);
+
+      for (const s of SLOTS) {
+        const list = PARTS[s.id];
+        if (s.required) {
+          this.slots[s.id] = pick(list).id;
+        } else {
+          this.slots[s.id] = pick(list).id;
+        }
+        this.palettes[s.id] = rng() < 0.65 ? mainPal : accentPal;
+      }
+      // 同步双臂袖子样式与颜色
+      this.slots.back_arm = this.slots.front_arm;
+      this.palettes.back_arm = this.palettes.front_arm;
+      return this;
+    }
+
+    getActiveLayerCount() {
+      let count = 0;
+      for (const s of SLOTS) {
+        if (!this.hiddenSlots.has(s.id) && this.slots[s.id] && this.slots[s.id] !== 'none') {
+          count++;
+        }
+      }
+      return count;
+    }
+
+    getFrameIndex(timeMs = 0) {
+      const act = ACTIONS.find(a => a.id === this.action) || ACTIONS[0];
+      return Math.floor((timeMs / 1000) * act.fps) % act.frames;
+    }
+
+    /**
+     * 合成当前帧所有可见层（返回供 Canvas 渲染或测试断言的图层列表）
+     */
+    composeFrame(frameIndex = 0) {
+      const dir = DIRECTIONS.find(d => d.id === this.direction) || DIRECTIONS[0];
+      const pose = computePose(this.action, frameIndex, dir);
+      const order = getRenderOrder(this.direction);
+      const skinObj = SKINS[this.skin] || SKINS.wood;
+      const layers = [];
+
+      for (const slotId of order) {
+        if (this.hiddenSlots.has(slotId)) continue;
+        const partId = this.slots[slotId];
+        if (!partId || partId === 'none') continue;
+        const paletteObj = PALETTES[this.palettes[slotId]] || PALETTES.cobalt;
+        const grid = rasterizeSlot(slotId, partId, dir, pose, {
+          handColorBugMode: this.handColorBugMode,
+        });
+        layers.push({ slotId, partId, paletteObj, skinObj, grid });
+      }
+      return { dir, pose, layers };
+    }
+
+    /**
+     * 渲染到 Canvas 2D 上下文
+     */
+    render(ctx, x, y, scale = 6, timeMs = 0, opts = {}) {
+      const frameIndex = typeof opts.frameIndex === 'number'
+        ? opts.frameIndex
+        : this.getFrameIndex(timeMs);
+      const { dir, layers } = this.composeFrame(frameIndex);
+      const explodeSpread = opts.explodeSpread || 0; // 分层爆炸展开演示用
+
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+
+      layers.forEach((layer, idx) => {
+        const { slotId, paletteObj, skinObj, grid } = layer;
+        const offsetX = explodeSpread ? (idx - (layers.length - 1) / 2) * explodeSpread : 0;
+        const originX = x + offsetX;
+
+        for (let py = 0; py < GRID; py++) {
+          for (let pxIdx = 0; pxIdx < GRID; pxIdx++) {
+            const cIdx = grid[py * GRID + pxIdx];
+            if (cIdx === 0) continue;
+            const color = resolvePaletteColor(cIdx, slotId, paletteObj, skinObj, this.handColorBugMode);
+            if (!color) continue;
+            const drawX = dir.flipX ? (GRID - 1 - pxIdx) : pxIdx;
+            ctx.fillStyle = color;
+            ctx.fillRect(
+              Math.floor(originX + drawX * scale),
+              Math.floor(y + py * scale),
+              Math.ceil(scale),
+              Math.ceil(scale)
+            );
+          }
+        }
+      });
+
+      ctx.restore();
+    }
+
+    toJSON() {
+      return {
+        version: '1.0.0',
+        skin: this.skin,
+        direction: this.direction,
+        action: this.action,
+        handColorBugMode: this.handColorBugMode,
+        slots: { ...this.slots },
+        palettes: { ...this.palettes },
+      };
+    }
+
+    static fromJSON(data) {
+      return new PaperDollCharacter(data);
+    }
+  }
+
+  return {
+    VERSION: '1.0.0',
+    GRID,
+    SLOTS,
+    DIRECTIONS,
+    ACTIONS,
+    PALETTES,
+    SKINS,
+    PARTS,
+    MANNEQUIN_PRESET,
+    PRESETS_16,
+    getRenderOrder,
+    resolvePaletteColor,
+    PaperDollCharacter,
+  };
+});
+
+  </script>
+
+  <!-- 互动工坊应用逻辑 -->
+  <script>
+    (function () {
+      'use strict';
+      const Kit = window.PaperDollKit;
+      const { SLOTS, DIRECTIONS, ACTIONS, PALETTES, SKINS, PARTS, PRESETS_16, getRenderOrder, PaperDollCharacter } = Kit;
+
+      const state = {
+        mode: 'demo', // 'demo' | 'play'
+        chapter: 0,   // 0..3
+        paused: false,
+        explodeSpread: 0,
+        autoSpin: false,
+        selectedColorSlot: 'torso_top',
+        activePresetId: 'knight',
+        demoStepTimer: 0,
+        demoSubStep: 0,
+        lastTs: 0,
+        animTime: 0,
+      };
+
+      const hero = new PaperDollCharacter({ preset: 'knight', direction: 'S', action: 'idle' });
+
+      // DOM 引用
+      const mainCanvas = document.getElementById('mainCanvas');
+      const mainCtx = mainCanvas.getContext('2d');
+      const loupeCanvas = document.getElementById('loupeCanvas');
+      const loupeCtx = loupeCanvas.getContext('2d');
+      const handLoupeBox = document.getElementById('handLoupeBox');
+      const loupeStatus = document.getElementById('loupeStatus');
+      const btnModeDemo = document.getElementById('btnModeDemo');
+      const btnModePlay = document.getElementById('btnModePlay');
+      const badgeMode = document.getElementById('badgeMode');
+      const stageCaption = document.getElementById('stageCaption');
+      const statLayers = document.getElementById('statLayers');
+      const statDirAct = document.getElementById('statDirAct');
+      const pausedBadge = document.getElementById('pausedBadge');
+      const btnPlayPause = document.getElementById('btnPlayPause');
+      const btnRandomize = document.getElementById('btnRandomize');
+      const btnResetMannequin = document.getElementById('btnResetMannequin');
+      const explodeSlider = document.getElementById('explodeSlider');
+      const explodeVal = document.getElementById('explodeVal');
+      const activePresetName = document.getElementById('activePresetName');
+      const presetGrid = document.getElementById('presetGrid');
+      const slotList = document.getElementById('slotList');
+      const globalPaletteGrid = document.getElementById('globalPaletteGrid');
+      const skinGrid = document.getElementById('skinGrid');
+      const singleColorSlotSelect = document.getElementById('singleColorSlotSelect');
+      const singleSlotPaletteRow = document.getElementById('singleSlotPaletteRow');
+      const dirCompass = document.getElementById('dirCompass');
+      const actionList = document.getElementById('actionList');
+      const btnAutoSpin = document.getElementById('btnAutoSpin');
+      const zOrderDirTag = document.getElementById('zOrderDirTag');
+      const zOrderList = document.getElementById('zOrderList');
+      const chapter4SkinRow = document.getElementById('chapter4SkinRow');
+      const chapter4ClothRow = document.getElementById('chapter4ClothRow');
+      const exportModal = document.getElementById('exportModal');
+      const exportCodePre = document.getElementById('exportCodePre');
+      const btnExportModal = document.getElementById('btnExportModal');
+      const btnCloseExport = document.getElementById('btnCloseExport');
+      const btnCopyJson = document.getElementById('btnCopyJson');
+      const btnDownloadPng = document.getElementById('btnDownloadPng');
+      const toastEl = document.getElementById('toast');
+
+      let toastTimer = null;
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 2200);
+      }
+
+      function switchToPlayIfDemo() {
+        if (state.mode === 'demo') {
+          setMode('play');
+        }
+      }
+
+      function setMode(mode) {
+        state.mode = mode;
+        const isDemo = mode === 'demo';
+        btnModeDemo.className = isDemo
+          ? 'px-3 py-1.5 text-xs font-medium rounded-md transition bg-amber-500 text-slate-950'
+          : 'px-3 py-1.5 text-xs font-medium rounded-md transition text-slate-300 hover:text-white';
+        btnModePlay.className = !isDemo
+          ? 'px-3 py-1.5 text-xs font-medium rounded-md transition bg-amber-500 text-slate-950'
+          : 'px-3 py-1.5 text-xs font-medium rounded-md transition text-slate-300 hover:text-white';
+        badgeMode.textContent = isDemo ? '自动演示中' : '自由编辑';
+        badgeMode.className = isDemo
+          ? 'px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium'
+          : 'px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium';
+        if (isDemo) {
+          state.demoStepTimer = 0;
+          state.demoSubStep = 0;
+          applyDemoStep();
+        } else {
+          stageCaption.textContent = '已停在当前状态，任意修改右侧槽位、色板、方向或动作。';
+        }
+      }
+
+      function setChapter(idx) {
+        state.chapter = idx;
+        document.querySelectorAll('.chapter-tab').forEach(btn => {
+          const active = Number(btn.dataset.chapter) === idx;
+          btn.className = active
+            ? 'chapter-tab px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition bg-slate-800 text-amber-300 border border-amber-500/40'
+            : 'chapter-tab px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200';
+        });
+        for (let i = 0; i < 4; i++) {
+          const panel = document.getElementById(`panelChapter${i}`);
+          if (panel) panel.classList.toggle('hidden', i !== idx);
+        }
+        handLoupeBox.classList.toggle('hidden', idx !== 3);
+
+        // 切到第 4 章时自动给角色穿上长袖+深色皮肤方便观察手部
+        if (idx === 3 && hero.slots.front_arm === 'bare') {
+          hero.setSlot('front_arm', 'long_sleeve').setSlot('back_arm', 'long_sleeve');
+        }
+        if (idx === 3 && hero.skin === 'wood') {
+          hero.setSkin('deep');
+        }
+        if (state.mode === 'demo') {
+          state.demoStepTimer = 0;
+          state.demoSubStep = 0;
+          applyDemoStep();
+        }
+        syncAllUI();
+      }
+
+      // 4 章节自动演示脚本
+      const DEMO_SCRIPTS = {
+        0: [
+          { caption: '1 · 拼装：先从 1 个最基础的原木木头人素体开始。', fn: () => { hero.applyPreset('mannequin'); hero.setDirection('S').setAction('idle'); state.explodeSpread = 0; state.activePresetId = 'mannequin'; } },
+          { caption: '1 · 拼装：逐层叠上裤子、靴子、胸甲、披风与武器，拼出钴蓝骑士！', fn: () => { hero.applyPreset('knight'); state.explodeSpread = 0; state.activePresetId = 'knight'; } },
+          { caption: '1 · 拼装：横向展开 17 个图层——所有部件都像贴纸一样独立叠加。', fn: () => { hero.applyPreset('knight'); state.explodeSpread = 16; } },
+          { caption: '1 · 拼装：换一套部件组合，立刻变成紫罗兰大法师，不用重画底图。', fn: () => { hero.applyPreset('mage'); state.explodeSpread = 0; state.activePresetId = 'mage'; } },
+        ],
+        1: [
+          { caption: '2 · 换色：同一件板甲，只替换 4 阶索引色板——钴蓝骑士。', fn: () => { hero.applyPreset('knight'); hero.setAllClothingPalette('cobalt'); state.explodeSpread = 0; } },
+          { caption: '2 · 换色：瞬间切换「绯红卫士」色板，0 张新美术图。', fn: () => { hero.setAllClothingPalette('crimson'); } },
+          { caption: '2 · 换色：切换「翡翠游侠」色板，描边与高光同步保持立体感。', fn: () => { hero.setAllClothingPalette('emerald'); } },
+          { caption: '2 · 换色：切换「樱粉庆典」色板，一套素材轻松撑出 10 种配色。', fn: () => { hero.setAllClothingPalette('sakura'); } },
+        ],
+        2: [
+          { caption: '3 · 动作：换好装备后，直接跑「行走」动画（南向正面）。', fn: () => { hero.setDirection('S').setAction('walk'); state.explodeSpread = 0; } },
+          { caption: '3 · 动作：转向侧身（东向）挥击，手臂与武器层级自动前后分明。', fn: () => { hero.setDirection('E').setAction('attack'); } },
+          { caption: '3 · 动作：转向背面（北向），披风与背饰自动重排到躯干最上层。', fn: () => { hero.setDirection('N').setAction('walk'); } },
+          { caption: '3 · 动作：切回右前（东南）欢呼跳跃，8 方向 × 4 动作全部通用！', fn: () => { hero.setDirection('SE').setAction('cheer'); } },
+        ],
+        3: [
+          { caption: '4 · 手的颜色：切换深棕肤色，若美术把原木色写死在袖子里——手没跟着变色！', fn: () => { hero.applyPreset('mage'); hero.setDirection('S').setAction('idle').setSkin('deep').setHandColorBugMode('baked_wood'); state.explodeSpread = 0; } },
+          { caption: '4 · 手的颜色：如果手掌误用衣服主色通道——换紫罗兰法袍，手也染成紫色！', fn: () => { hero.setAllClothingPalette('violet').setHandColorBugMode('dyed_sleeve'); } },
+          { caption: '4 · 手的颜色：修复！手掌像素走独立肤色通道（LUT 9..12），切肤色瞬间同步。', fn: () => { hero.setHandColorBugMode('none'); } },
+        ],
+      };
+
+      function applyDemoStep() {
+        const list = DEMO_SCRIPTS[state.chapter];
+        const step = list[state.demoSubStep % list.length];
+        step.fn();
+        stageCaption.textContent = step.caption;
+        explodeSlider.value = String(state.explodeSpread);
+        explodeVal.textContent = `${state.explodeSpread}px`;
+        syncAllUI();
+      }
+
+      // 构建 16 角色预设缩略图墙
+      function buildPresetGrid() {
+        presetGrid.innerHTML = '';
+        PRESETS_16.forEach(p => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.presetId = p.id;
+          btn.className = 'preset-card group flex flex-col items-center p-1.5 rounded-xl border border-slate-800 bg-slate-950/70 hover:border-amber-400/60 transition';
+
+          const cv = document.createElement('canvas');
+          cv.width = 48;
+          cv.height = 48;
+          cv.className = 'pixelated w-12 h-12';
+          const tmp = new PaperDollCharacter({ preset: p.id, direction: 'S', action: 'idle' });
+          tmp.render(cv.getContext('2d'), 0, 0, 1.5, 0, { frameIndex: 0 });
+
+          const label = document.createElement('span');
+          label.className = 'text-[10px] text-slate-300 group-hover:text-white truncate w-full text-center mt-1';
+          label.textContent = p.name.replace(/^\d+\s*·\s*/, '');
+
+          btn.appendChild(cv);
+          btn.appendChild(label);
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            hero.applyPreset(p.id);
+            state.activePresetId = p.id;
+            syncAllUI();
+          });
+          presetGrid.appendChild(btn);
+        });
+      }
+
+      // 构建第 1 章：17 槽位控制列表
+      function buildSlotControls() {
+        slotList.innerHTML = '';
+        SLOTS.forEach((slot, idx) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-950/70 border border-slate-800/90';
+
+          const left = document.createElement('div');
+          left.className = 'flex items-center gap-2 min-w-0';
+
+          const eyeBtn = document.createElement('button');
+          eyeBtn.type = 'button';
+          eyeBtn.dataset.visSlot = slot.id;
+          eyeBtn.title = '显示/隐藏该槽位';
+          eyeBtn.className = 'vis-btn w-6 h-6 rounded-md text-xs flex items-center justify-center bg-slate-800 text-emerald-300 hover:bg-slate-700 shrink-0';
+          eyeBtn.textContent = '●';
+          eyeBtn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            const isHidden = hero.hiddenSlots.has(slot.id);
+            hero.setSlotVisible(slot.id, isHidden);
+            syncAllUI();
+          });
+
+          const nameWrap = document.createElement('div');
+          nameWrap.className = 'min-w-0';
+          nameWrap.innerHTML = `<div class="text-xs font-medium text-slate-200 truncate">${String(idx + 1).padStart(2, '0')} · ${slot.name}</div><div class="text-[10px] text-slate-500">${slot.category}</div>`;
+
+          left.appendChild(eyeBtn);
+          left.appendChild(nameWrap);
+
+          const sel = document.createElement('select');
+          sel.dataset.partSlot = slot.id;
+          sel.className = 'part-select bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 max-w-[140px]';
+          PARTS[slot.id].forEach(part => {
+            const opt = document.createElement('option');
+            opt.value = part.id;
+            opt.textContent = part.name;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('change', () => {
+            switchToPlayIfDemo();
+            hero.setSlot(slot.id, sel.value);
+            if (slot.id === 'front_arm') hero.setSlot('back_arm', sel.value);
+            state.activePresetId = 'custom';
+            syncAllUI();
+          });
+
+          row.appendChild(left);
+          row.appendChild(sel);
+          slotList.appendChild(row);
+        });
+      }
+
+      // 构建第 2 章：色板与肤色控制
+      function buildColorControls() {
+        globalPaletteGrid.innerHTML = '';
+        Object.values(PALETTES).forEach(pal => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.globalPal = pal.id;
+          btn.className = 'pal-btn flex items-center gap-2 p-2 rounded-lg border border-slate-800 bg-slate-900/90 hover:border-amber-400/60 transition text-left';
+          btn.innerHTML = `
+            <span class="flex shrink-0 rounded overflow-hidden border border-slate-700">
+              <span class="w-2.5 h-5" style="background:${pal.primary[1]}"></span>
+              <span class="w-2.5 h-5" style="background:${pal.primary[2]}"></span>
+              <span class="w-2.5 h-5" style="background:${pal.secondary[2]}"></span>
+            </span>
+            <span class="text-xs text-slate-200 truncate">${pal.name}</span>
+          `;
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            hero.setAllClothingPalette(pal.id);
+            syncAllUI();
+          });
+          globalPaletteGrid.appendChild(btn);
+        });
+
+        skinGrid.innerHTML = '';
+        Object.values(SKINS).forEach(sk => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.skinId = sk.id;
+          btn.className = 'skin-btn flex items-center gap-2 p-2 rounded-lg border border-slate-800 bg-slate-900/90 hover:border-amber-400/60 transition text-left';
+          btn.innerHTML = `
+            <span class="w-4 h-4 rounded-full border border-slate-600 shrink-0" style="background:${sk.swatch}"></span>
+            <span class="text-xs text-slate-200 truncate">${sk.name}</span>
+          `;
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            hero.setSkin(sk.id);
+            syncAllUI();
+          });
+          skinGrid.appendChild(btn);
+        });
+
+        singleColorSlotSelect.innerHTML = '';
+        SLOTS.filter(s => s.colorable).forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.name;
+          singleColorSlotSelect.appendChild(opt);
+        });
+        singleColorSlotSelect.value = state.selectedColorSlot;
+        singleColorSlotSelect.addEventListener('change', () => {
+          state.selectedColorSlot = singleColorSlotSelect.value;
+          syncAllUI();
+        });
+
+        singleSlotPaletteRow.innerHTML = '';
+        Object.values(PALETTES).forEach(pal => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.singlePal = pal.id;
+          btn.title = pal.name;
+          btn.className = 'single-pal-btn w-7 h-7 rounded-lg border-2 border-slate-700 transition';
+          btn.style.background = pal.swatch;
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            hero.setPalette(state.selectedColorSlot, pal.id);
+            if (state.selectedColorSlot === 'front_arm') hero.setPalette('back_arm', pal.id);
+            syncAllUI();
+          });
+          singleSlotPaletteRow.appendChild(btn);
+        });
+      }
+
+      // 构建第 3 章：8 方向罗盘 & 4 动作
+      function buildMotionControls() {
+        const compassLayout = [
+          'NW', 'N', 'NE',
+          'W',  null, 'E',
+          'SW', 'S', 'SE',
+        ];
+        dirCompass.innerHTML = '';
+        compassLayout.forEach(dirId => {
+          if (!dirId) {
+            const center = document.createElement('div');
+            center.className = 'flex items-center justify-center text-[10px] font-mono text-slate-500';
+            center.textContent = '8 向';
+            dirCompass.appendChild(center);
+            return;
+          }
+          const d = DIRECTIONS.find(x => x.id === dirId);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.dirId = d.id;
+          btn.className = 'dir-btn py-2 rounded-lg border border-slate-800 bg-slate-900 text-xs font-medium text-slate-300 hover:border-amber-400/60 transition';
+          btn.textContent = d.id;
+          btn.title = d.label;
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            state.autoSpin = false;
+            hero.setDirection(d.id);
+            syncAllUI();
+          });
+          dirCompass.appendChild(btn);
+        });
+
+        actionList.innerHTML = '';
+        ACTIONS.forEach(act => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.actId = act.id;
+          btn.className = 'act-btn py-2 rounded-lg border border-slate-800 bg-slate-900 text-xs font-medium text-slate-300 hover:border-amber-400/60 transition';
+          btn.textContent = act.label;
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            hero.setAction(act.id);
+            syncAllUI();
+          });
+          actionList.appendChild(btn);
+        });
+      }
+
+      // 构建第 4 章：快捷肤色与服装色测试条
+      function buildChapter4Controls() {
+        chapter4SkinRow.innerHTML = '';
+        Object.values(SKINS).forEach(sk => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'px-2.5 py-1 rounded-md border border-slate-700 bg-slate-900 hover:border-amber-400 text-[11px] text-slate-200 flex items-center gap-1.5';
+          btn.innerHTML = `<span class="w-3 h-3 rounded-full" style="background:${sk.swatch}"></span>${sk.name}`;
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            hero.setSkin(sk.id);
+            syncAllUI();
+          });
+          chapter4SkinRow.appendChild(btn);
+        });
+
+        chapter4ClothRow.innerHTML = '';
+        ['crimson', 'cobalt', 'emerald', 'violet', 'sakura'].forEach(pid => {
+          const pal = PALETTES[pid];
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'px-2.5 py-1 rounded-md border border-slate-700 bg-slate-900 hover:border-amber-400 text-[11px] text-slate-200 flex items-center gap-1.5';
+          btn.innerHTML = `<span class="w-3 h-3 rounded" style="background:${pal.swatch}"></span>衣：${pal.name}`;
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            hero.setAllClothingPalette(pid);
+            syncAllUI();
+          });
+          chapter4ClothRow.appendChild(btn);
+        });
+
+        document.querySelectorAll('.bug-mode-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            switchToPlayIfDemo();
+            hero.setHandColorBugMode(btn.dataset.bugMode);
+            syncAllUI();
+          });
+        });
+      }
+
+      function syncAllUI() {
+        const dirObj = DIRECTIONS.find(d => d.id === hero.direction) || DIRECTIONS[0];
+        const actObj = ACTIONS.find(a => a.id === hero.action) || ACTIONS[0];
+        statLayers.textContent = `活跃图层 ${hero.getActiveLayerCount()}/17`;
+        statDirAct.textContent = `${dirObj.label} / ${actObj.label}`;
+
+        const matchedPreset = state.activePresetId === 'mannequin'
+          ? Kit.MANNEQUIN_PRESET
+          : PRESETS_16.find(p => p.id === state.activePresetId);
+        activePresetName.textContent = matchedPreset ? matchedPreset.name : '自定义角色';
+
+        // 预设卡片高亮
+        document.querySelectorAll('.preset-card').forEach(el => {
+          const active = el.dataset.presetId === state.activePresetId;
+          el.classList.toggle('border-amber-400', active);
+          el.classList.toggle('bg-amber-500/10', active);
+          el.classList.toggle('border-slate-800', !active);
+        });
+
+        // 槽位选择器同步
+        document.querySelectorAll('.part-select').forEach(sel => {
+          sel.value = hero.slots[sel.dataset.partSlot] || 'none';
+        });
+        document.querySelectorAll('.vis-btn').forEach(btn => {
+          const hidden = hero.hiddenSlots.has(btn.dataset.visSlot);
+          btn.textContent = hidden ? '○' : '●';
+          btn.className = hidden
+            ? 'vis-btn w-6 h-6 rounded-md text-xs flex items-center justify-center bg-slate-900 text-slate-600 hover:bg-slate-800 shrink-0'
+            : 'vis-btn w-6 h-6 rounded-md text-xs flex items-center justify-center bg-slate-800 text-emerald-300 hover:bg-slate-700 shrink-0';
+        });
+
+        // 肤色与单槽位色板高亮
+        document.querySelectorAll('.skin-btn').forEach(btn => {
+          const active = btn.dataset.skinId === hero.skin;
+          btn.classList.toggle('border-amber-400', active);
+          btn.classList.toggle('border-slate-800', !active);
+        });
+        const curSlotPal = hero.palettes[state.selectedColorSlot];
+        document.querySelectorAll('.single-pal-btn').forEach(btn => {
+          btn.classList.toggle('border-white', btn.dataset.singlePal === curSlotPal);
+          btn.classList.toggle('scale-110', btn.dataset.singlePal === curSlotPal);
+          btn.classList.toggle('border-slate-700', btn.dataset.singlePal !== curSlotPal);
+        });
+
+        // 方向与动作高亮
+        document.querySelectorAll('.dir-btn').forEach(btn => {
+          const active = btn.dataset.dirId === hero.direction;
+          btn.classList.toggle('bg-amber-500', active);
+          btn.classList.toggle('text-slate-950', active);
+          btn.classList.toggle('border-amber-400', active);
+          btn.classList.toggle('bg-slate-900', !active);
+          btn.classList.toggle('text-slate-300', !active);
+        });
+        document.querySelectorAll('.act-btn').forEach(btn => {
+          const active = btn.dataset.actId === hero.action;
+          btn.classList.toggle('bg-amber-500', active);
+          btn.classList.toggle('text-slate-950', active);
+          btn.classList.toggle('border-amber-400', active);
+          btn.classList.toggle('bg-slate-900', !active);
+          btn.classList.toggle('text-slate-300', !active);
+        });
+        btnAutoSpin.textContent = state.autoSpin ? '停止自动 8 向旋转' : '开启自动 8 向旋转';
+
+        // Z-Order 列表
+        zOrderDirTag.textContent = `${dirObj.id} · ${dirObj.label}`;
+        const order = getRenderOrder(hero.direction);
+        zOrderList.innerHTML = '';
+        order.forEach((sid, i) => {
+          const sObj = SLOTS.find(x => x.id === sid);
+          const active = !hero.hiddenSlots.has(sid) && hero.slots[sid] && hero.slots[sid] !== 'none';
+          const chip = document.createElement('span');
+          chip.className = active
+            ? 'px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-200'
+            : 'px-1.5 py-0.5 rounded bg-slate-900/60 border border-slate-800/60 text-[10px] text-slate-600';
+          chip.textContent = `${i + 1}.${sObj ? sObj.name : sid}`;
+          zOrderList.appendChild(chip);
+        });
+
+        // 第 4 章 Bug 模式按钮高亮 & 放大镜状态
+        document.querySelectorAll('.bug-mode-btn').forEach(btn => {
+          const active = btn.dataset.bugMode === hero.handColorBugMode;
+          btn.classList.toggle('ring-2', active);
+          btn.classList.toggle('ring-amber-400', active);
+        });
+        if (hero.handColorBugMode === 'none') {
+          loupeStatus.textContent = '✓ 手部与肤色同步';
+          loupeStatus.className = 'text-[10px] mt-1 font-medium text-emerald-400';
+        } else if (hero.handColorBugMode === 'baked_wood') {
+          loupeStatus.textContent = '✗ 手部写死原木色';
+          loupeStatus.className = 'text-[10px] mt-1 font-medium text-rose-400';
+        } else {
+          loupeStatus.textContent = '✗ 手部染成衣服色';
+          loupeStatus.className = 'text-[10px] mt-1 font-medium text-amber-400';
+        }
+
+        // 暂停按钮
+        btnPlayPause.textContent = state.paused ? '继续' : '暂停';
+        pausedBadge.classList.toggle('hidden', !state.paused);
+      }
+
+      // 渲染主循环
+      let spinAcc = 0;
+      function tick(ts) {
+        if (!state.lastTs) state.lastTs = ts;
+        const dt = Math.min(100, ts - state.lastTs);
+        state.lastTs = ts;
+
+        if (!state.paused) {
+          state.animTime += dt;
+          if (state.mode === 'demo') {
+            state.demoStepTimer += dt;
+            if (state.demoStepTimer >= 2800) {
+              state.demoStepTimer = 0;
+              state.demoSubStep++;
+              applyDemoStep();
+            }
+          }
+          if (state.autoSpin) {
+            spinAcc += dt;
+            if (spinAcc >= 750) {
+              spinAcc = 0;
+              const curIdx = DIRECTIONS.findIndex(d => d.id === hero.direction);
+              const next = DIRECTIONS[(curIdx + 1) % DIRECTIONS.length];
+              hero.setDirection(next.id);
+              syncAllUI();
+            }
+          }
+        }
+
+        // 绘制主舞台
+        mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        const scale = state.explodeSpread > 0 ? 6 : 9;
+        const drawSize = Kit.GRID * scale;
+        const cx = Math.floor((mainCanvas.width - drawSize) / 2);
+        const cy = Math.floor((mainCanvas.height - drawSize) / 2) + 8;
+        hero.render(mainCtx, cx, cy, scale, state.animTime, { explodeSpread: state.explodeSpread });
+
+        // 绘制手部放大镜（第 4 章）
+        if (state.chapter === 3) {
+          loupeCtx.clearRect(0, 0, loupeCanvas.width, loupeCanvas.height);
+          // 聚焦近侧手部区域 (约 x=18..25, y=16..23)
+          const lScale = 14;
+          hero.render(loupeCtx, -18.5 * lScale, -16.5 * lScale, lScale, state.animTime);
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      // 绑定全局事件
+      btnModeDemo.addEventListener('click', () => setMode('demo'));
+      btnModePlay.addEventListener('click', () => setMode('play'));
+
+      document.querySelectorAll('.chapter-tab').forEach(btn => {
+        btn.addEventListener('click', () => setChapter(Number(btn.dataset.chapter)));
+      });
+
+      function togglePause() {
+        state.paused = !state.paused;
+        syncAllUI();
+      }
+      btnPlayPause.addEventListener('click', togglePause);
+      mainCanvas.addEventListener('click', togglePause);
+
+      window.addEventListener('keydown', e => {
+        if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
+          e.preventDefault();
+          togglePause();
+        }
+      });
+
+      btnRandomize.addEventListener('click', () => {
+        switchToPlayIfDemo();
+        hero.randomize();
+        state.activePresetId = 'custom';
+        syncAllUI();
+        showToast('已随机拼装新角色');
+      });
+
+      btnResetMannequin.addEventListener('click', () => {
+        switchToPlayIfDemo();
+        hero.applyPreset('mannequin').setHandColorBugMode('none');
+        state.activePresetId = 'mannequin';
+        state.explodeSpread = 0;
+        explodeSlider.value = '0';
+        explodeVal.textContent = '0px';
+        syncAllUI();
+      });
+
+      explodeSlider.addEventListener('input', () => {
+        switchToPlayIfDemo();
+        state.explodeSpread = Number(explodeSlider.value);
+        explodeVal.textContent = `${state.explodeSpread}px`;
+      });
+
+      btnAutoSpin.addEventListener('click', () => {
+        switchToPlayIfDemo();
+        state.autoSpin = !state.autoSpin;
+        syncAllUI();
+      });
+
+      // 导出弹窗
+      btnExportModal.addEventListener('click', () => {
+        const cfg = JSON.stringify(hero.toJSON(), null, 2);
+        exportCodePre.textContent = `const hero = PaperDollKit.PaperDollCharacter.fromJSON(${cfg});\nhero.render(ctx, 32, 32, 6, performance.now());`;
+        exportModal.classList.remove('hidden');
+      });
+      btnCloseExport.addEventListener('click', () => exportModal.classList.add('hidden'));
+      exportModal.addEventListener('click', e => {
+        if (e.target === exportModal) exportModal.classList.add('hidden');
+      });
+
+      btnCopyJson.addEventListener('click', () => {
+        const text = exportCodePre.textContent;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => showToast('已复制代码片段')).catch(() => fallbackCopy(text));
+        } else {
+          fallbackCopy(text);
+        }
+      });
+
+      function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('已复制代码片段'); } catch (_) { showToast('请手动选中复制'); }
+        document.body.removeChild(ta);
+      }
+
+      btnDownloadPng.addEventListener('click', () => {
+        const out = document.createElement('canvas');
+        out.width = 256;
+        out.height = 256;
+        hero.render(out.getContext('2d'), 0, 0, 8, state.animTime);
+        const a = document.createElement('a');
+        a.download = `paperdoll-${state.activePresetId || 'custom'}.png`;
+        a.href = out.toDataURL('image/png');
+        a.click();
+        showToast('已导出 256×256 PNG');
+      });
+
+      // 初始化
+      buildPresetGrid();
+      buildSlotControls();
+      buildColorControls();
+      buildMotionControls();
+      buildChapter4Controls();
+      setMode('demo');
+      setChapter(0);
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>
