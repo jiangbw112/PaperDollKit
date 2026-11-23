@@ -177,6 +177,21 @@ export interface PartDirectionVisual {
   fps?: number;
 }
 
+export interface PartRules {
+  /**
+   * Equipping this part automatically suppresses rendering of these target slots
+   * (e.g. a full helmet hides `hair_style`, or a two-handed bow hides `off_hand`).
+   * The user's underlying slot selection is preserved and restored once this part is unequipped.
+   */
+  hidesSlots?: SlotId[];
+  /**
+   * Conditional part substitution when this part is equipped:
+   * maps target `slotId -> replacement partId` (or `'none'` to hide).
+   * Only applies when the target slot currently has a non-`'none'` part equipped.
+   */
+  overrideSlots?: Record<SlotId, string>;
+}
+
 export interface PartAsset {
   id: string;
   name: string;
@@ -184,6 +199,8 @@ export interface PartAsset {
   recolorMode?: RecolorMode;
   /** Visual definitions keyed by DirectionId (mirrored directions fall back via DirectionSpec.mirrorFrom). */
   directions: Record<DirectionId, PartDirectionVisual>;
+  /** Optional slot visibility/substitution rules evaluated when this part is equipped. */
+  rules?: PartRules;
   tags?: string[];
 }
 
@@ -282,6 +299,15 @@ export interface EvaluatedLayer {
   handColorBugMode: HandColorBugMode;
 }
 
+export interface SuppressedSlotInfo {
+  bySlotId: SlotId;
+  byPartId: string;
+  byPartName: string;
+  reason: 'hidden' | 'overridden';
+  overridePartId?: string;
+  overridePartName?: string;
+}
+
 export interface EvaluatedFrame {
   direction: DirectionSpec;
   actionId: string;
@@ -290,4 +316,6 @@ export interface EvaluatedFrame {
   discreteFrameIndex: number;
   /** Sorted back-to-front ready for drawing or exporting. */
   layers: EvaluatedLayer[];
+  /** Slots automatically hidden or substituted by equipped parts' `PartRules`. */
+  suppressedSlots?: Record<SlotId, SuppressedSlotInfo>;
 }

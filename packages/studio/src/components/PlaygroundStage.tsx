@@ -26,6 +26,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { SavedCharacterEntry } from '../utils/character-library.ts';
 
 export interface PlaygroundActor {
   id: string;
@@ -57,6 +58,7 @@ interface PlaygroundStageProps {
   imagesVersion: number;
   currentEditorConfig: CharacterConfig;
   currentEditorPresetName: string;
+  savedCharacters?: SavedCharacterEntry[];
   debugMaskView: boolean;
   onToggleDebugMask: () => void;
   onEditActorInStudio: (config: CharacterConfig) => void;
@@ -128,6 +130,7 @@ export function PlaygroundStage({
   imagesVersion,
   currentEditorConfig,
   currentEditorPresetName,
+  savedCharacters = [],
   debugMaskView,
   onToggleDebugMask,
   onEditActorInStudio,
@@ -290,6 +293,16 @@ export function PlaygroundStage({
     setSelectedId(actor.id);
     onToast(`已将「${label}」添加到多人场景`);
   }, [currentEditorConfig, currentEditorPresetName, spawnActorFromConfig, onToast]);
+
+  const handleAddSavedCharacter = useCallback(
+    (entry: SavedCharacterEntry) => {
+      const actor = spawnActorFromConfig(entry.config, entry.name, `saved:${entry.id}`);
+      setActors((prev) => [...prev, actor]);
+      setSelectedId(actor.id);
+      onToast(`已从角色库投放「${entry.name}」`);
+    },
+    [spawnActorFromConfig, onToast],
+  );
 
   const handleAddRandom = useCallback(() => {
     const cfg = createRandomConfig(pack);
@@ -754,8 +767,41 @@ export function PlaygroundStage({
           </div>
         </div>
 
-        {/* 1 + 16 Presets Spawn Palette */}
+        {/* Saved Character Library + 1 + 16 Presets Spawn Palette */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {savedCharacters.length > 0 && (
+            <div className="mb-2 space-y-1 border-b border-slate-800/80 pb-2">
+              <div className="px-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+                本地角色库 ({savedCharacters.length})
+              </div>
+              {savedCharacters.map((entry) => {
+                const swatch =
+                  pack.palettes[entry.config.palettes.torso_top ?? 'cobalt']?.swatch ?? '#10b981';
+                return (
+                  <button
+                    key={entry.id}
+                    onClick={() => handleAddSavedCharacter(entry)}
+                    className="group flex w-full items-center justify-between rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-2.5 py-1.5 text-left hover:border-emerald-400/60 hover:bg-emerald-950/40 transition"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-5 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: swatch }}
+                      />
+                      <div className="min-w-0">
+                        <div className="truncate text-[11px] font-semibold text-emerald-100">
+                          {entry.name}
+                        </div>
+                        <div className="truncate text-[9px] text-emerald-400/70">已保存自定义</div>
+                      </div>
+                    </div>
+                    <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-500/70 group-hover:text-emerald-300 transition" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             点击投放预设角色 ({pack.presets.length})
           </div>

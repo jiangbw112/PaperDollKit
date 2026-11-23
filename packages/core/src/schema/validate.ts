@@ -137,6 +137,34 @@ export function validateAssetPack(input: unknown): ValidationResult<AssetPackMan
   }
   if (!isRecord(input.parts)) {
     errors.push('AssetPackManifest.parts must be an object keyed by slot id.');
+  } else {
+    for (const [slotId, partList] of Object.entries(input.parts)) {
+      if (!Array.isArray(partList)) continue;
+      for (const part of partList) {
+        if (!isRecord(part) || !isRecord(part.rules)) continue;
+        const partLabel = `${slotId}/${String(part.id ?? '?')}`;
+        if (Array.isArray(part.rules.hidesSlots)) {
+          for (const targetSlot of part.rules.hidesSlots) {
+            if (typeof targetSlot !== 'string' || !slotIds.has(targetSlot)) {
+              errors.push(`Part "${partLabel}" rules.hidesSlots references unknown slot "${String(targetSlot)}".`);
+            } else if (targetSlot === slotId) {
+              errors.push(`Part "${partLabel}" rules.hidesSlots cannot hide its own slot "${slotId}".`);
+            }
+          }
+        }
+        if (isRecord(part.rules.overrideSlots)) {
+          for (const [targetSlot, replacementId] of Object.entries(part.rules.overrideSlots)) {
+            if (!slotIds.has(targetSlot)) {
+              errors.push(`Part "${partLabel}" rules.overrideSlots references unknown slot "${targetSlot}".`);
+            } else if (targetSlot === slotId) {
+              errors.push(`Part "${partLabel}" rules.overrideSlots cannot override its own slot "${slotId}".`);
+            } else if (typeof replacementId !== 'string' || replacementId.length === 0) {
+              errors.push(`Part "${partLabel}" rules.overrideSlots["${targetSlot}"] must be a non-empty partId or "none".`);
+            }
+          }
+        }
+      }
+    }
   }
   if (!isRecord(input.animations) || Object.keys(input.animations).length === 0) {
     errors.push('AssetPackManifest.animations must define at least one animation clip.');

@@ -1,19 +1,24 @@
 import {
   PaperDollCharacter,
+  SCHEMA_VERSION,
   createStarterIsometricPack,
   type AssetPackManifest,
+  type CharacterConfig,
   type DirectionId,
   type HandColorBugMode,
   type SlotId,
+  type Vec2,
 } from '@paperdollkit/core';
 import type { ImportReport, ImportedImage } from '@paperdollkit/importers';
 import {
+  Bookmark,
   Bug,
   Dices,
   Download,
   Eye,
   EyeOff,
   FileImage,
+  FileJson,
   FolderUp,
   Grid2x2,
   Layers,
@@ -21,9 +26,13 @@ import {
   Palette,
   Pause,
   Play,
+  Redo2,
   RotateCcw,
+  Save,
   Sliders,
   Sparkles,
+  Trash2,
+  Undo2,
   Upload,
   Users,
 } from 'lucide-react';
@@ -33,6 +42,20 @@ import { LutPreviewBar } from './components/LutPreviewBar.tsx';
 import { PlaygroundStage } from './components/PlaygroundStage.tsx';
 import { ViewportCanvas } from './components/ViewportCanvas.tsx';
 import { downloadTextFile, importBrowserFiles } from './utils/browser-import.ts';
+import {
+  applySlotOffsetsToPack,
+  clearStudioAutosave,
+  cloneCharacterConfig,
+  extractSlotOffsets,
+  loadSavedCharacters,
+  loadStudioAutosave,
+  parseImportedProjectJson,
+  sanitizeCharacterConfig,
+  saveSavedCharacters,
+  saveStudioAutosave,
+  type SavedCharacterEntry,
+  type StudioProjectFile,
+} from './utils/character-library.ts';
 import { loadStickerHDPack } from './utils/sticker-pack-loader.ts';
 
 const COMPASS_GRID: (DirectionId | null)[][] = [
@@ -40,6 +63,14 @@ const COMPASS_GRID: (DirectionId | null)[][] = [
   ['W', null, 'E'],
   ['SW', 'S', 'SE'],
 ];
+
+interface HistorySnapshot {
+  config: CharacterConfig;
+  activePresetId: string;
+  slotOffsets: Record<SlotId, Vec2>;
+}
+
+const MAX_HISTORY = 50;
 
 export default function App() {
   const initialShell = useMemo(() => createStarterIsometricPack(), []);
@@ -49,7 +80,7 @@ export default function App() {
   const [images, setImages] = useState<Map<string, ImportedImage>>(() => new Map());
   const [imagesVersion, setImagesVersion] = useState(0);
 
-  const [config, setConfig] = useState(() => {
+  const [config, setConfig] = useState<CharacterConfig>(() => {
     const ch = new PaperDollCharacter(initialShell, {
       preset: 'knight',
       direction: 'SE',
@@ -61,6 +92,14 @@ export default function App() {
   const [selectedSlotId, setSelectedSlotId] = useState<SlotId>('front_arm');
   const [activePresetId, setActivePresetId] = useState<string>('paladin');
   const [presetWallOpen, setPresetWallOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [savedCharacters, setSavedCharacters] = useState<SavedCharacterEntry[]>(() =>
+    loadSavedCharacters(),
+  );
+  const [saveNameDraft, setSaveNameDraft] = useState('');
+  const [historyPast, setHistoryPast] = useState<HistorySnapshot[]>([]);
+  const [historyFuture, setHistoryFuture] = useState<HistorySnapshot[]>([]);
+
   const [isPlaying, setIsPlaying] = useState(true);
   const [timeMs, setTimeMs] = useState(0);
   const [speed, setSpeed] = useState(1);
@@ -73,29 +112,178 @@ export default function App() {
   const [importToast, setImportToast] = useState<string | null>(null);
   const [lastReport, setLastReport] = useState<ImportReport | null>(null);
 
-  const applyDefaultPack = useCallback(async () => {
-    try {
-      const sticker = await loadStickerHDPack();
-      setPack(sticker.pack);
-      setImages(sticker.images);
-      setImagesVersion((v) => v + 1);
-      const ch = new PaperDollCharacter(sticker.pack, {
-        preset: 'paladin',
-        direction: 'SE',
-        action: 'idle',
-      });
-      setActivePresetId('paladin');
-      setConfig(ch.toJSON());
-    } catch (err) {
-      setImportToast(`资源包加载失败: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  const packReadyRef = useRef(false);
+  const packRef = useRef(pack);
+  packRef.current = pack;
+  const configRef = useRef(config);
+  configRef.current = config;
+  const activePresetIdRef = useRef(activePresetId);
+  activePresetIdRef.current = activePresetId;
+  const lastCoalesceRef = useRef<{ key: string; ts: number } | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setImportToast(msg);
+    window.setTimeout(() => {
+      setImportToast((cur) => (cur === msg ? null : cur));
+    }, 4500);
   }, []);
 
+  const captureSnapshot = useCallback((): HistorySnapshot => {
+    return {
+      config: cloneCharacterConfig(configRef.current),
+      activePresetId: activePresetIdRef.current,
+      slotOffsets: extractSlotOffsets(packRef.current),
+    };
+  }, []);
+
+  const pushHistory = useCallback(
+    (coalesceKey?: string) => {
+      const now = performance.now();
+      if (
+        coalesceKey &&
+        lastCoalesceRef.current &&
+        lastCoalesceRef.current.key === coalesceKey &&
+        now - lastCoalesceRef.current.ts < 400
+      ) {
+        lastCoalesceRef.current.ts = now;
+        return;
+      }
+      lastCoalesceRef.current = coalesceKey ? { key: coalesceKey, ts: now } : null;
+      const snap = captureSnapshot();
+      setHistoryPast((prev) => {
+        const next = [...prev, snap];
+        return next.length > MAX_HISTORY ? next.slice(next.length - MAX_HISTORY) : next;
+      });
+      setHistoryFuture([]);
+    },
+    [captureSnapshot],
+  );
+
+  const handleUndo = useCallback(() => {
+    setHistoryPast((prev) => {
+      if (prev.length === 0) return prev;
+      const target = prev[prev.length - 1]!;
+      const currentSnap = captureSnapshot();
+      setHistoryFuture((f) => [currentSnap, ...f].slice(0, MAX_HISTORY));
+      setConfig(cloneCharacterConfig(target.config));
+      setActivePresetId(target.activePresetId);
+      setPack((p) => applySlotOffsetsToPack(p, target.slotOffsets));
+      lastCoalesceRef.current = null;
+      return prev.slice(0, -1);
+    });
+  }, [captureSnapshot]);
+
+  const handleRedo = useCallback(() => {
+    setHistoryFuture((prev) => {
+      if (prev.length === 0) return prev;
+      const target = prev[0]!;
+      const currentSnap = captureSnapshot();
+      setHistoryPast((p) => [...p, currentSnap].slice(-MAX_HISTORY));
+      setConfig(cloneCharacterConfig(target.config));
+      setActivePresetId(target.activePresetId);
+      setPack((p) => applySlotOffsetsToPack(p, target.slotOffsets));
+      lastCoalesceRef.current = null;
+      return prev.slice(1);
+    });
+  }, [captureSnapshot]);
+
+  // Global keyboard shortcuts for Undo / Redo in editor mode
   useEffect(() => {
-    void applyDefaultPack();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (workspaceMode !== 'editor') return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [workspaceMode, handleUndo, handleRedo]);
+
+  // Persist local character library whenever it changes
+  useEffect(() => {
+    saveSavedCharacters(savedCharacters);
+  }, [savedCharacters]);
+
+  const applyDefaultPack = useCallback(
+    async (ignoreAutosave = false) => {
+      try {
+        const sticker = await loadStickerHDPack();
+        let nextPack = sticker.pack;
+        let nextConfig: CharacterConfig;
+        let nextPresetId = 'paladin';
+
+        const autosave = ignoreAutosave ? null : loadStudioAutosave(sticker.pack.id);
+        if (autosave) {
+          const san = sanitizeCharacterConfig(autosave.config, sticker.pack);
+          nextConfig = san.config;
+          nextPresetId = autosave.activePresetId || 'custom';
+          if (autosave.slotOffsets) {
+            nextPack = applySlotOffsetsToPack(nextPack, autosave.slotOffsets);
+          }
+        } else {
+          if (ignoreAutosave) clearStudioAutosave();
+          const ch = new PaperDollCharacter(sticker.pack, {
+            preset: 'paladin',
+            direction: 'SE',
+            action: 'idle',
+          });
+          nextConfig = ch.toJSON();
+        }
+
+        setPack(nextPack);
+        setImages(sticker.images);
+        setImagesVersion((v) => v + 1);
+        setActivePresetId(nextPresetId);
+        setConfig(nextConfig);
+        setHistoryPast([]);
+        setHistoryFuture([]);
+        packReadyRef.current = true;
+      } catch (err) {
+        showToast(`资源包加载失败: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [showToast],
+  );
+
+  useEffect(() => {
+    void applyDefaultPack(false);
   }, [applyDefaultPack]);
 
+  // Debounced autosave of current editor character & slot offsets to localStorage
+  useEffect(() => {
+    if (!packReadyRef.current) return;
+    const timer = window.setTimeout(() => {
+      saveStudioAutosave({
+        version: 1,
+        packId: pack.id,
+        activePresetId,
+        config,
+        slotOffsets: extractSlotOffsets(pack),
+        updatedAt: Date.now(),
+      });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [pack, config, activePresetId]);
+
   const globalFileInputRef = useRef<HTMLInputElement | null>(null);
+  const jsonImportInputRef = useRef<HTMLInputElement | null>(null);
   const slotAlbedoInputRef = useRef<HTMLInputElement | null>(null);
   const slotMaskInputRef = useRef<HTMLInputElement | null>(null);
   const canvasExportRef = useRef<HTMLCanvasElement | null>(null);
@@ -131,27 +319,116 @@ export default function App() {
   }, [pack, config, timeMs, explodeSpread]);
 
   const mutateCharacter = useCallback(
-    (mutator: (ch: PaperDollCharacter) => void) => {
+    (mutator: (ch: PaperDollCharacter) => void, recordUndo = true) => {
+      if (recordUndo) pushHistory();
       setConfig((prev) => {
         const ch = new PaperDollCharacter(pack, prev);
         mutator(ch);
         return ch.toJSON();
       });
     },
-    [pack],
+    [pack, pushHistory],
   );
 
-  const showToast = useCallback((msg: string) => {
-    setImportToast(msg);
-    window.setTimeout(() => {
-      setImportToast((cur) => (cur === msg ? null : cur));
-    }, 4500);
-  }, []);
+  const handleSaveToLibrary = useCallback(() => {
+    const presetLabel =
+      pack.presets.find((p) => p.id === activePresetId)?.name.replace(/^\d+\s*·\s*/, '') ??
+      '自定义角色';
+    const trimmed = saveNameDraft.trim() || `${presetLabel} #${savedCharacters.length + 1}`;
+    const existingIdx = savedCharacters.findIndex((c) => c.name === trimmed);
+    const entry: SavedCharacterEntry = {
+      id: existingIdx >= 0 ? savedCharacters[existingIdx]!.id : `char_${Date.now()}`,
+      name: trimmed,
+      updatedAt: Date.now(),
+      config: cloneCharacterConfig(config),
+    };
+    setSavedCharacters((prev) => {
+      if (existingIdx >= 0) {
+        const next = [...prev];
+        next[existingIdx] = entry;
+        return next;
+      }
+      return [entry, ...prev];
+    });
+    setSaveNameDraft('');
+    showToast(existingIdx >= 0 ? `已覆盖角色库存档「${trimmed}」` : `已保存「${trimmed}」到本地角色库`);
+  }, [pack.presets, activePresetId, saveNameDraft, savedCharacters, config, showToast]);
+
+  const handleLoadFromLibrary = useCallback(
+    (entry: SavedCharacterEntry) => {
+      pushHistory();
+      const san = sanitizeCharacterConfig(entry.config, pack);
+      setConfig(san.config);
+      setActivePresetId('custom');
+      setLibraryOpen(false);
+      showToast(`已载入角色「${entry.name}」`);
+    },
+    [pack, pushHistory, showToast],
+  );
+
+  const handleDeleteFromLibrary = useCallback(
+    (entry: SavedCharacterEntry) => {
+      setSavedCharacters((prev) => prev.filter((c) => c.id !== entry.id));
+      showToast(`已删除角色「${entry.name}」`);
+    },
+    [showToast],
+  );
+
+  const handleExportProjectJson = useCallback(() => {
+    const projectFile: StudioProjectFile = {
+      kind: 'paperdollkit-project',
+      schemaVersion: SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      packId: pack.id,
+      activePresetId,
+      config: cloneCharacterConfig(config),
+      slotOffsets: extractSlotOffsets(pack),
+      library: savedCharacters,
+    };
+    downloadTextFile('paperdoll-project.pdk.json', JSON.stringify(projectFile, null, 2));
+    showToast(`已导出项目存档（含 ${savedCharacters.length} 个角色库条目与挂点偏移）`);
+  }, [pack, activePresetId, config, savedCharacters, showToast]);
+
+  const handleImportJsonFile = useCallback(
+    async (file: File) => {
+      try {
+        const text = await file.text();
+        const result = parseImportedProjectJson(text, pack);
+        pushHistory();
+        if (result.slotOffsets) {
+          setPack((prev) => applySlotOffsetsToPack(prev, result.slotOffsets!));
+        }
+        if (result.config) {
+          setConfig(result.config);
+          setActivePresetId(result.activePresetId ?? 'custom');
+        }
+        if (result.importedLibrary && result.importedLibrary.length > 0) {
+          setSavedCharacters((prev) => {
+            const byId = new Map(prev.map((e) => [e.id, e]));
+            for (const entry of result.importedLibrary!) {
+              byId.set(entry.id, entry);
+            }
+            return Array.from(byId.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+          });
+        }
+        setLibraryOpen(false);
+        const libNote = result.importedLibrary?.length
+          ? `，合并 ${result.importedLibrary.length} 个角色库条目`
+          : '';
+        const warnNote = result.warnings.length > 0 ? `（${result.warnings.length} 条兼容提示）` : '';
+        showToast(`已导入 "${file.name}"${libNote}${warnNote}`);
+      } catch (err) {
+        showToast(`JSON 导入失败: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [pack, pushHistory, showToast],
+  );
 
   const handleGlobalImport = useCallback(
     async (files: File[]) => {
       try {
         const res = await importBrowserFiles(files, pack, images);
+        pushHistory();
         setPack(res.pack);
         setImages(res.images);
         setImagesVersion((v) => v + 1);
@@ -179,7 +456,7 @@ export default function App() {
         showToast(`导入失败: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [pack, images, showToast],
+    [pack, images, pushHistory, showToast],
   );
 
   const handleSlotDirectUpload = useCallback(
@@ -202,6 +479,7 @@ export default function App() {
           directionId: canonicalDir,
           isMask,
         });
+        pushHistory();
         setPack(res.pack);
         setImages(res.images);
         setImagesVersion((v) => v + 1);
@@ -223,27 +501,32 @@ export default function App() {
         showToast(`上传失败: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [config, selectedSlotId, pack, images, showToast],
+    [config, selectedSlotId, pack, images, pushHistory, showToast],
   );
 
-  const handleDragSlotOffset = useCallback((slotId: SlotId, dx: number, dy: number) => {
-    setPack((prev) => ({
-      ...prev,
-      slots: prev.slots.map((s) =>
-        s.id === slotId
-          ? {
-              ...s,
-              defaultOffset: {
-                x: Math.round((s.defaultOffset.x + dx) * 10) / 10,
-                y: Math.round((s.defaultOffset.y + dy) * 10) / 10,
-              },
-            }
-          : s,
-      ),
-    }));
-  }, []);
+  const handleDragSlotOffset = useCallback(
+    (slotId: SlotId, dx: number, dy: number) => {
+      pushHistory(`offset:${slotId}`);
+      setPack((prev) => ({
+        ...prev,
+        slots: prev.slots.map((s) =>
+          s.id === slotId
+            ? {
+                ...s,
+                defaultOffset: {
+                  x: Math.round((s.defaultOffset.x + dx) * 10) / 10,
+                  y: Math.round((s.defaultOffset.y + dy) * 10) / 10,
+                },
+              }
+            : s,
+        ),
+      }));
+    },
+    [pushHistory],
+  );
 
   const updateSelectedSlotOffset = (axis: 'x' | 'y', value: number) => {
+    pushHistory(`offset:${selectedSlotId}:${axis}`);
     setPack((prev) => ({
       ...prev,
       slots: prev.slots.map((s) =>
@@ -296,6 +579,17 @@ export default function App() {
         }}
       />
       <input
+        ref={jsonImportInputRef}
+        type="file"
+        accept=".json,.pdk.json,application/json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleImportJsonFile(file);
+          e.target.value = '';
+        }}
+      />
+      <input
         ref={slotMaskInputRef}
         type="file"
         accept=".png,.webp"
@@ -333,6 +627,7 @@ export default function App() {
               <button
                 onClick={() => {
                   setPresetWallOpen(false);
+                  setLibraryOpen(false);
                   setWorkspaceMode('playground');
                 }}
                 className={`flex items-center gap-1 rounded-md px-2.5 py-0.5 font-semibold transition ${
@@ -354,6 +649,26 @@ export default function App() {
         <div className="flex items-center gap-1.5 whitespace-nowrap">
           {workspaceMode === 'editor' && (
           <>
+          {/* Undo / Redo */}
+          <div className="flex items-center gap-0.5 mr-0.5 border-r border-slate-800 pr-1.5">
+            <button
+              onClick={handleUndo}
+              disabled={historyPast.length === 0}
+              className="rounded border border-slate-700/80 bg-slate-800/80 p-1 text-slate-200 hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition"
+              title={`撤销 (Ctrl+Z) · 可撤销 ${historyPast.length} 步`}
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={historyFuture.length === 0}
+              className="rounded border border-slate-700/80 bg-slate-800/80 p-1 text-slate-200 hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition"
+              title={`重做 (Ctrl+Shift+Z) · 可重做 ${historyFuture.length} 步`}
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           {/* 1 Mannequin + 16 Presets Gallery Trigger + Randomize */}
           <div className="relative flex items-center gap-1 mr-1 border-r border-slate-800 pr-2">
             <button
@@ -372,7 +687,10 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setPresetWallOpen((v) => !v)}
+              onClick={() => {
+                setLibraryOpen(false);
+                setPresetWallOpen((v) => !v);
+              }}
               className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold border transition ${
                 presetWallOpen
                   ? 'border-sky-400 bg-sky-600/30 text-white'
@@ -505,14 +823,155 @@ export default function App() {
             导出 Godot/Cocos
           </button>
 
-          <button
-            onClick={() => downloadTextFile('character-v2.json', JSON.stringify(config, null, 2))}
-            className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 transition"
-            title="导出当前角色 JSON 配置"
-          >
-            <Download className="h-3.5 w-3.5" />
-            JSON
-          </button>
+          {/* Character Library & JSON Save/Load Popover */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setPresetWallOpen(false);
+                setLibraryOpen((v) => !v);
+              }}
+              className={`flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition ${
+                libraryOpen
+                  ? 'border-emerald-400 bg-emerald-600/25 text-white'
+                  : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700'
+              }`}
+              title="本地角色库、自动保存与 JSON 项目存档导入/导出"
+            >
+              <Bookmark className="h-3.5 w-3.5 text-emerald-400" />
+              <span>角色库</span>
+              {savedCharacters.length > 0 && (
+                <span className="rounded bg-emerald-500/20 px-1 font-mono text-[10px] text-emerald-300">
+                  {savedCharacters.length}
+                </span>
+              )}
+            </button>
+
+            {libraryOpen && (
+              <div className="absolute right-0 top-10 z-40 w-[360px] rounded-xl border border-slate-700/90 bg-slate-900/98 p-3 shadow-2xl backdrop-blur whitespace-normal">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-white">本地角色库 & 存档读写</span>
+                  <span className="text-[10px] text-emerald-400/90">已开启自动保存</span>
+                </div>
+
+                {/* Save current character to library */}
+                <div className="mb-2.5 flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={saveNameDraft}
+                    onChange={(e) => setSaveNameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveToLibrary();
+                    }}
+                    placeholder="输入角色名称（留空自动命名）"
+                    className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleSaveToLibrary}
+                    className="flex shrink-0 items-center gap-1 rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500 transition"
+                  >
+                    <Save className="h-3 w-3" />
+                    保存
+                  </button>
+                </div>
+
+                {/* Saved characters list */}
+                <div className="mb-2.5 max-h-[220px] space-y-1 overflow-y-auto pr-0.5">
+                  {savedCharacters.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/50 py-4 text-center text-[11px] text-slate-500">
+                      暂无已保存角色 · 点击上方「保存」可存入本地库并投放到 Playground
+                    </div>
+                  ) : (
+                    savedCharacters.map((entry) => {
+                      const swatch =
+                        pack.palettes[entry.config.palettes.torso_top ?? 'cobalt']?.swatch ??
+                        '#10b981';
+                      return (
+                        <div
+                          key={entry.id}
+                          className="flex items-center justify-between gap-1.5 rounded-lg border border-slate-800 bg-slate-950/70 px-2 py-1.5 hover:border-slate-700"
+                        >
+                          <button
+                            onClick={() => handleLoadFromLibrary(entry)}
+                            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                            title="点击载入编辑器"
+                          >
+                            <span
+                              className="h-5 w-1.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: swatch }}
+                            />
+                            <div className="min-w-0">
+                              <div className="truncate text-[11px] font-semibold text-slate-100">
+                                {entry.name}
+                              </div>
+                              <div className="text-[9px] text-slate-500">
+                                {new Date(entry.updatedAt).toLocaleString('zh-CN', {
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
+                            </div>
+                          </button>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              onClick={() =>
+                                downloadTextFile(
+                                  `${entry.name}.json`,
+                                  JSON.stringify(entry.config, null, 2),
+                                )
+                              }
+                              className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-sky-300"
+                              title="导出该角色 JSON"
+                            >
+                              <Download className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteFromLibrary(entry)}
+                              className="rounded p-1 text-slate-400 hover:bg-rose-950/60 hover:text-rose-300"
+                              title="删除"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* JSON Import / Export footer */}
+                <div className="grid grid-cols-3 gap-1.5 border-t border-slate-800 pt-2">
+                  <button
+                    onClick={() => jsonImportInputRef.current?.click()}
+                    className="flex items-center justify-center gap-1 rounded border border-sky-500/40 bg-sky-600/20 px-2 py-1.5 text-[11px] font-medium text-sky-200 hover:bg-sky-600/35 transition"
+                    title="导入单角色 JSON 或项目存档 .pdk.json"
+                  >
+                    <Upload className="h-3 w-3" />
+                    导入 JSON
+                  </button>
+                  <button
+                    onClick={() =>
+                      downloadTextFile('character-v2.json', JSON.stringify(config, null, 2))
+                    }
+                    className="flex items-center justify-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-[11px] text-slate-200 hover:bg-slate-700 transition"
+                    title="仅导出当前角色 JSON"
+                  >
+                    <FileJson className="h-3 w-3" />
+                    导出角色
+                  </button>
+                  <button
+                    onClick={handleExportProjectJson}
+                    className="flex items-center justify-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-[11px] text-slate-200 hover:bg-slate-700 transition"
+                    title="导出完整项目存档（含当前角色、挂点偏移和整个角色库）"
+                  >
+                    <Download className="h-3 w-3" />
+                    项目存档
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={handleExportCurrentPng}
@@ -552,14 +1011,12 @@ export default function App() {
           currentEditorPresetName={
             pack.presets.find((p) => p.id === activePresetId)?.name ?? '自定义角色'
           }
+          savedCharacters={savedCharacters}
           debugMaskView={debugMaskView}
           onToggleDebugMask={() => setDebugMaskView((v) => !v)}
           onEditActorInStudio={(actorCfg) => {
-            setConfig({
-              ...actorCfg,
-              slots: { ...actorCfg.slots },
-              palettes: { ...actorCfg.palettes },
-            });
+            pushHistory();
+            setConfig(cloneCharacterConfig(actorCfg));
             setActivePresetId('custom');
             setWorkspaceMode('editor');
             showToast('已将该角色载入编辑器，修改后可再次添加到多人场景');
@@ -579,10 +1036,10 @@ export default function App() {
             </div>
             <button
               onClick={() => {
-                void applyDefaultPack().then(() => showToast('已重置为 0xsu 风贴纸木头人角色包'));
+                void applyDefaultPack(true).then(() => showToast('已重置为默认角色并清除自动存档'));
               }}
               className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-              title="重置默认 0xsu 风贴纸角色资产"
+              title="重置默认 0xsu 风贴纸角色资产（清除自动存档）"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
@@ -595,6 +1052,7 @@ export default function App() {
               const isHidden = hiddenSet.has(slot.id);
               const isSelected = selectedSlotId === slot.id;
               const zIdx = evaluatedFrame.layers.findIndex((l) => l.slotId === slot.id);
+              const suppressed = evaluatedFrame.suppressedSlots?.[slot.id];
 
               return (
                 <div
@@ -634,7 +1092,9 @@ export default function App() {
                       onChange={(e) =>
                         mutateCharacter((ch) => ch.setSlot(slot.id, e.target.value))
                       }
-                      className="w-full rounded border border-slate-700/80 bg-slate-950/90 px-1.5 py-0.5 text-[11px] text-slate-200 focus:border-sky-500 focus:outline-none"
+                      className={`w-full rounded border border-slate-700/80 bg-slate-950/90 px-1.5 py-0.5 text-[11px] text-slate-200 focus:border-sky-500 focus:outline-none ${
+                        suppressed?.reason === 'hidden' ? 'opacity-55' : ''
+                      }`}
                     >
                       {!slot.required && <option value="none">无</option>}
                       {partList.map((p) => (
@@ -644,6 +1104,25 @@ export default function App() {
                       ))}
                     </select>
                   </div>
+
+                  {suppressed && (
+                    <div
+                      className={`mt-1 truncate rounded px-1.5 py-0.5 text-[10px] ${
+                        suppressed.reason === 'hidden'
+                          ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                          : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                      }`}
+                      title={
+                        suppressed.reason === 'hidden'
+                          ? `当前被「${suppressed.byPartName}」自动隐藏，摘下后自动恢复`
+                          : `当前被「${suppressed.byPartName}」自动切换为「${suppressed.overridePartName}」，摘下后恢复原选择`
+                      }
+                    >
+                      {suppressed.reason === 'hidden'
+                        ? `规则：被「${suppressed.byPartName}」自动隐藏`
+                        : `规则：被「${suppressed.byPartName}」收束为「${suppressed.overridePartName}」`}
+                    </div>
+                  )}
                 </div>
               );
             })}

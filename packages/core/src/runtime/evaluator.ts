@@ -19,6 +19,7 @@ import type {
   SlotId,
   SocketTransform,
   SpriteFrameRef,
+  SuppressedSlotInfo,
   Transform2D,
 } from '../schema/types.js';
 
@@ -92,13 +93,98 @@ function getMergedTrack(
   return clip.tracks.find((t) => t.slotId === slotId);
 }
 
+export interface ResolvedPartRulesResult {
+  /** Effective partId per slot after applying equipped parts' `rules.hidesSlots` and `rules.overrideSlots`. */
+  effectiveSlots: Record<SlotId, string>;
+  /** Diagnostic metadata for slots hidden or substituted by another equipped part. */
+  suppressedSlots: Record<SlotId, SuppressedSlotInfo>;
+}
+
+/**
+ * Resolves declarative `PartRules` (`hidesSlots` and `overrideSlots`) across all
+ * currently equipped and visible parts without mutating the user's `CharacterConfig`.
+ */
+export function resolvePartRules(
+  pack: AssetPackManifest,
+  config: CharacterConfig,
+): ResolvedPartRulesResult {
+  const hidden = new Set<SlotId>(config.hiddenSlots ?? []);
+  const effectiveSlots: Record<SlotId, string> = { ...config.slots };
+  const suppressedSlots: Record<SlotId, SuppressedSlotInfo> = {};
+
+  // Pass 1: apply `hidesSlots` from all visible equipped parts
+  for (const slot of pack.slots) {
+    if (hidden.has(slot.id)) continue;
+    const partId = config.slots[slot.id];
+    if (!partId || partId === 'none') continue;
+    const part = pack.parts[slot.id]?.find((p) => p.id === partId);
+    if (!part?.rules?.hidesSlots) continue;
+
+    for (const targetSlot of part.rules.hidesSlots) {
+      if (targetSlot === slot.id) continue;
+      const targetEquipped = config.slots[targetSlot];
+      effectiveSlots[targetSlot] = 'none';
+      if (targetEquipped && targetEquipped !== 'none') {
+        suppressedSlots[targetSlot] = {
+          bySlotId: slot.id,
+          byPartId: part.id,
+          byPartName: part.name,
+          reason: 'hidden',
+        };
+      }
+    }
+  }
+
+  // Pass 2: apply `overrideSlots` from parts that remain active (not hidden by Pass 1)
+  for (const slot of pack.slots) {
+    if (hidden.has(slot.id)) continue;
+    const partId = effectiveSlots[slot.id];
+    if (!partId || partId === 'none') continue;
+    const part = pack.parts[slot.id]?.find((p) => p.id === partId);
+    if (!part?.rules?.overrideSlots) continue;
+
+    for (const [targetSlot, replacementId] of Object.entries(part.rules.overrideSlots)) {
+      if (targetSlot === slot.id) continue;
+      const currentTarget = effectiveSlots[targetSlot];
+      if (!currentTarget || currentTarget === 'none') continue;
+      if (currentTarget === replacementId) continue;
+
+      if (replacementId === 'none') {
+        effectiveSlots[targetSlot] = 'none';
+        suppressedSlots[targetSlot] = {
+          bySlotId: slot.id,
+          byPartId: part.id,
+          byPartName: part.name,
+          reason: 'hidden',
+        };
+      } else {
+        const replacementPart = pack.parts[targetSlot]?.find((p) => p.id === replacementId);
+        if (replacementPart) {
+          effectiveSlots[targetSlot] = replacementId;
+          suppressedSlots[targetSlot] = {
+            bySlotId: slot.id,
+            byPartId: part.id,
+            byPartName: part.name,
+            reason: 'overridden',
+            overridePartId: replacementPart.id,
+            overridePartName: replacementPart.name,
+          };
+        }
+      }
+    }
+  }
+
+  return { effectiveSlots, suppressedSlots };
+}
+
 /**
  * Evaluates a complete character frame at `timeMs`, solving:
  * 1. Animation time normalization & discrete frame index
  * 2. Direction lookup & isometric mirror fallback (`mirrorFrom`)
- * 3. Hybrid visual selection (rigged single sprite vs. multi-frame sequence)
- * 4. Parent -> child hierarchical transform + per-frame socket attachment
- * 5. Dynamic Z-Order sorting with optional per-keyframe zOffset overrides
+ * 3. Declarative `PartRules` (slot hiding & conditional part substitution)
+ * 4. Hybrid visual selection (rigged single sprite vs. multi-frame sequence)
+ * 5. Parent -> child hierarchical transform + per-frame socket attachment
+ * 6. Dynamic Z-Order sorting with optional per-keyframe zOffset overrides
  */
 export function evaluateCharacterFrame(
   pack: AssetPackManifest,
@@ -140,6 +226,7 @@ export function evaluateCharacterFrame(
   }
 
   const hidden = new Set<SlotId>(config.hiddenSlots ?? []);
+  const { effectiveSlots, suppressedSlots } = resolvePartRules(pack, config);
   const zOrderList = pack.zOrder[direction.id] ?? pack.slots.map((s) => s.id);
   const baseZMap = new Map<SlotId, number>();
   zOrderList.forEach((slotId, index) => baseZMap.set(slotId, index));
@@ -163,7 +250,7 @@ export function evaluateCharacterFrame(
   >();
 
   for (const slot of pack.slots) {
-    const partId = config.slots[slot.id];
+    const partId = effectiveSlots[slot.id];
     if (!partId || partId === 'none') continue;
     const part = pack.parts[slot.id]?.find((p) => p.id === partId);
     if (!part) continue;
@@ -293,5 +380,6 @@ export function evaluateCharacterFrame(
     normalizedTime,
     discreteFrameIndex,
     layers,
+    ...(Object.keys(suppressedSlots).length > 0 ? { suppressedSlots } : {}),
   };
 }

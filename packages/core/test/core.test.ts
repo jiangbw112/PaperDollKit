@@ -171,4 +171,82 @@ describe('@paperdollkit/core v2.0 IR & runtime', () => {
     expect(restored.toJSON()).toEqual(json);
     expect(restored.getActiveLayerCount()).toBe(hero.getActiveLayerCount());
   });
+
+  it('evaluates PartRules (hidesSlots & overrideSlots) without mutating underlying slots', () => {
+    const ruledPack = createStarterIsometricPack();
+    const hatPart = ruledPack.parts.head_hat?.[0];
+    const hairParts = ruledPack.parts.hair_style ?? [];
+    expect(hatPart).toBeDefined();
+    expect(hairParts.length).toBeGreaterThanOrEqual(1);
+
+    // Ensure at least two hair parts exist for overrideSlots testing
+    if (hairParts.length < 2) {
+      hairParts.push({
+        ...hairParts[0]!,
+        id: 'hair_long_test',
+        name: '测试长发',
+      });
+    }
+
+    // Attach hidesSlots rule to helmet
+    hatPart!.rules = { hidesSlots: ['hair_style'] };
+
+    // Add a second hood-like hat with overrideSlots rule
+    const hoodPart = {
+      ...hatPart!,
+      id: 'hood_test',
+      name: '测试兜帽',
+      rules: { overrideSlots: { hair_style: hairParts[0]!.id } },
+    };
+    ruledPack.parts.head_hat!.push(hoodPart);
+
+    const validPack = validateAssetPack(ruledPack);
+    expect(validPack.ok).toBe(true);
+
+    // 1. Equipping full helmet hides hair_style while keeping config.slots.hair_style intact
+    const hero = new PaperDollCharacter(ruledPack, {
+      slots: {
+        head_hat: hatPart!.id,
+        hair_style: hairParts[1]!.id,
+      },
+    });
+    const frameHidden = hero.evaluate(0);
+    expect(frameHidden.layers.some((l) => l.slotId === 'hair_style')).toBe(false);
+    expect(frameHidden.suppressedSlots?.hair_style).toMatchObject({
+      bySlotId: 'head_hat',
+      byPartId: hatPart!.id,
+      reason: 'hidden',
+    });
+    expect(hero.slots.hair_style).toBe(hairParts[1]!.id);
+
+    // 2. Hiding the helmet layer lifts its suppression rule
+    hero.setSlotVisible('head_hat', false);
+    const frameVisibleAgain = hero.evaluate(0);
+    expect(frameVisibleAgain.layers.some((l) => l.slotId === 'hair_style')).toBe(true);
+    expect(frameVisibleAgain.suppressedSlots?.hair_style).toBeUndefined();
+
+    // 3. Switching to hood overrides long hair -> short hair without mutating config.slots
+    hero.setSlotVisible('head_hat', true).setSlot('head_hat', 'hood_test');
+    const frameOverride = hero.evaluate(0);
+    const hairLayer = frameOverride.layers.find((l) => l.slotId === 'hair_style');
+    expect(hairLayer?.partId).toBe(hairParts[0]!.id);
+    expect(frameOverride.suppressedSlots?.hair_style).toMatchObject({
+      bySlotId: 'head_hat',
+      byPartId: 'hood_test',
+      reason: 'overridden',
+      overridePartId: hairParts[0]!.id,
+    });
+    expect(hero.slots.hair_style).toBe(hairParts[1]!.id);
+
+    // 4. Unequipping hat restores original hair_style automatically
+    hero.setSlot('head_hat', 'none');
+    const frameRestored = hero.evaluate(0);
+    expect(frameRestored.layers.find((l) => l.slotId === 'hair_style')?.partId).toBe(hairParts[1]!.id);
+    expect(frameRestored.suppressedSlots).toBeUndefined();
+
+    // 5. Validator catches invalid rule target slot
+    hatPart!.rules = { hidesSlots: ['nonexistent_slot'] };
+    const invalidPack = validateAssetPack(ruledPack);
+    expect(invalidPack.ok).toBe(false);
+  });
 });

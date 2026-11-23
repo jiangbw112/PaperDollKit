@@ -273,12 +273,13 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     name: string,
     recolorMode: PartAsset['recolorMode'],
     builder: (dir: string) => PartAsset['directions'][string],
+    rules?: PartAsset['rules'],
   ) => {
     const directions: PartAsset['directions'] = {};
     for (const d of CANONICAL_DIRS) {
       directions[d] = builder(d);
     }
-    parts[slotId]!.push({ id, name, slotId, recolorMode, directions });
+    parts[slotId]!.push({ id, name, slotId, recolorMode, directions, ...(rules ? { rules } : {}) });
   };
 
   const addSharedPart = (
@@ -287,8 +288,9 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     name: string,
     frame: SpriteFrameRef,
     recolorMode: PartAsset['recolorMode'] = 'mask_ramp',
+    rules?: PartAsset['rules'],
   ) => {
-    addDirPart(slotId, id, name, recolorMode, () => ({ mode: 'rigged', frames: [frame] }));
+    addDirPart(slotId, id, name, recolorMode, () => ({ mode: 'rigged', frames: [frame] }), rules);
   };
 
   // 1. Shadow
@@ -438,25 +440,35 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     }));
   }
 
-  // 14. Head Hat (6 styles with carefully tuned Q-version vertical pivots)
-  for (const [id, name, py] of [
-    ['knight_helm', '骑士头盔', 0.54],
+  // 14. Head Hat (6 styles with carefully tuned Q-version vertical pivots & conflict rules)
+  const hatDefs: ReadonlyArray<readonly [string, string, number, PartAsset['rules']?]> = [
+    ['knight_helm', '骑士头盔', 0.54, { hidesSlots: ['hair_style'] }],
     ['wizard_hat', '尖顶法师帽', 0.84],
-    ['hood', '游侠兜帽', 0.46],
+    ['hood', '游侠兜帽', 0.46, { overrideSlots: { hair_style: 'short' } }],
     ['pirate_hat', '海盗三角帽', 0.78],
     ['crown', '黄金王冠', 0.88],
     ['bandana', '头巾', 0.68],
-  ] as const) {
-    addDirPart('head_hat', id, name, 'mask_ramp', (d) => ({
-      mode: 'rigged',
-      frames: [makeFrame(`hat_${id}_${d}`, { x: 0.5, y: py })],
-    }));
+  ];
+  for (const [id, name, py, rules] of hatDefs) {
+    addDirPart(
+      'head_hat',
+      id,
+      name,
+      'mask_ramp',
+      (d) => ({
+        mode: 'rigged',
+        frames: [makeFrame(`hat_${id}_${d}`, { x: 0.5, y: py })],
+      }),
+      rules,
+    );
   }
 
   // 15. Main Hand Weapons (7 styles held on forward +X hand, pointing 斜前方!)
   addSharedPart('main_hand', 'sword', '骑士长剑', makeFrame('weapon_sword', { x: 0.35, y: 0.71 }));
   addSharedPart('main_hand', 'staff', '秘法长杖', makeFrame('weapon_staff', { x: 0.36, y: 0.69 }));
-  addSharedPart('main_hand', 'bow', '猎手长弓', makeFrame('weapon_bow', { x: 0.48, y: 0.50 }));
+  addSharedPart('main_hand', 'bow', '猎手长弓', makeFrame('weapon_bow', { x: 0.48, y: 0.50 }), 'mask_ramp', {
+    hidesSlots: ['off_hand'],
+  });
   addSharedPart('main_hand', 'axe', '战斧', makeFrame('weapon_axe', { x: 0.35, y: 0.72 }));
   addSharedPart('main_hand', 'dagger', '短刃', makeFrame('weapon_dagger', { x: 0.36, y: 0.67 }));
   addSharedPart('main_hand', 'hammer', '锻造铁锤', makeFrame('weapon_hammer', { x: 0.35, y: 0.72 }));
