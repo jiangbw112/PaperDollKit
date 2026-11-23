@@ -1,0 +1,25 @@
+{
+  "name": "@paperdollkit/exporters",
+  "version": "2.0.0-alpha.0",
+  "description": "Isomorphic MaxRects atlas packer, PNG/ZIP codecs, and Godot 4 / Cocos Creator 3.x baked spritesheet exporters",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@paperdollkit/core": "workspace:*",
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@paperdollkit/importers": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

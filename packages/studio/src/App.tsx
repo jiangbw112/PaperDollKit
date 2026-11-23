@@ -18,6 +18,7 @@ import {
   FileImage,
   FolderUp,
   Layers,
+  Package,
   Palette,
   Pause,
   Play,
@@ -27,6 +28,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ExportModal } from './components/ExportModal.tsx';
 import { LutPreviewBar } from './components/LutPreviewBar.tsx';
 import { ViewportCanvas } from './components/ViewportCanvas.tsx';
 import { downloadTextFile, importBrowserFiles } from './utils/browser-import.ts';
@@ -63,6 +65,7 @@ export default function App() {
   const [showGizmos, setShowGizmos] = useState(false);
   const [debugMaskView, setDebugMaskView] = useState(false);
   const [backend, setBackend] = useState<'webgl2' | 'canvas2d'>('webgl2');
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [importToast, setImportToast] = useState<string | null>(null);
   const [lastReport, setLastReport] = useState<ImportReport | null>(null);
 
@@ -358,10 +361,19 @@ export default function App() {
 
           <button
             onClick={() => globalFileInputRef.current?.click()}
-            className="flex items-center gap-1.5 rounded bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-500 transition shadow-sm"
+            className="flex items-center gap-1.5 rounded border border-sky-500/40 bg-sky-600/20 px-2.5 py-1 text-xs font-semibold text-sky-200 hover:bg-sky-600/35 transition"
           >
             <FolderUp className="h-3.5 w-3.5" />
-            导入 PSD / PNG
+            导入 PSD/PNG
+          </button>
+
+          <button
+            onClick={() => setExportModalOpen(true)}
+            className="flex items-center gap-1.5 rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500 transition shadow-sm"
+            title="一键烘焙合图并导出 Godot 4.x / Cocos Creator 3.x 资源包"
+          >
+            <Package className="h-3.5 w-3.5" />
+            导出 Godot/Cocos
           </button>
 
           <button
@@ -801,6 +813,14 @@ export default function App() {
           </section>
         </aside>
       </div>
+
+      <ExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        pack={pack}
+        config={config}
+        images={images}
+      />
     </div>
   );
 }
