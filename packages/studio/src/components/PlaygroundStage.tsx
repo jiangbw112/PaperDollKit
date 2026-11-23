@@ -39,6 +39,8 @@ export interface PlaygroundActor {
   scale: number;
   /** Per-actor animation phase offset so crowds don't march in robotic lockstep. */
   timeOffsetMs: number;
+  /** Simulation timestamp (ms) when the current action started (needed for attack/cast/hit clips). */
+  actionStartedAtMs: number;
   /** Active movement waypoint (for double-click move or AI roam). */
   targetX: number | null;
   targetY: number | null;
@@ -167,6 +169,7 @@ export function PlaygroundStage({
   const roamRef = useRef(roamEnabled);
   roamRef.current = roamEnabled;
 
+  const [activeBatchAction, setActiveBatchAction] = useState<string | null>('idle');
   const [showLabels, setShowLabels] = useState(true);
   const [fps, setFps] = useState(60);
   const [totalLayersDrawn, setTotalLayersDrawn] = useState(0);
@@ -254,7 +257,8 @@ export function PlaygroundStage({
         x: p.x,
         y: p.y,
         scale,
-        timeOffsetMs: Math.floor(Math.random() * 1200),
+        timeOffsetMs: Math.floor(Math.random() * 600),
+        actionStartedAtMs: simTimeRef.current,
         targetX: null,
         targetY: null,
         aiWaitMs: 300 + Math.random() * 1200,
@@ -357,11 +361,16 @@ export function PlaygroundStage({
 
   const handleBatchAction = useCallback((actionId: string) => {
     setRoamEnabled(false);
+    setActiveBatchAction(actionId);
+    setIsPlaying(true);
+    const nowSim = simTimeRef.current;
     setActors((prev) =>
-      prev.map((a) => ({
+      prev.map((a, idx) => ({
         ...a,
         targetX: null,
         targetY: null,
+        actionStartedAtMs: nowSim,
+        timeOffsetMs: (idx % 6) * 55,
         config: { ...a.config, action: actionId },
       })),
     );
@@ -442,6 +451,7 @@ export function PlaygroundStage({
               actor.targetX = null;
               actor.targetY = null;
               actor.config.action = roam && Math.random() < 0.25 ? 'attack' : 'idle';
+              actor.actionStartedAtMs = simTimeRef.current;
               actor.aiWaitMs = 500 + Math.random() * 1400;
               movedAny = true;
             } else {
@@ -491,7 +501,12 @@ export function PlaygroundStage({
 
         for (const actor of sorted) {
           const ch = new PaperDollCharacter(pack, actor.config);
-          const frame = ch.evaluate(simTimeRef.current + actor.timeOffsetMs);
+          const clip = pack.animations[actor.config.action];
+          const durationMs = Math.max(1, clip?.durationMs ?? 1000);
+          const elapsedMs = Math.max(0, simTimeRef.current - actor.actionStartedAtMs + actor.timeOffsetMs);
+          // Wrap modulo clip duration so non-looping clips (attack/cast/hit) repeat cleanly in Playground preview
+          const localTimeMs = elapsedMs % durationMs;
+          const frame = ch.evaluate(localTimeMs);
           layerSum += frame.layers.length;
 
           const panXCss = p.x + actor.x * z;
@@ -995,7 +1010,10 @@ export function PlaygroundStage({
             </button>
 
             <button
-              onClick={() => setRoamEnabled((v) => !v)}
+              onClick={() => {
+                setActiveBatchAction(null);
+                setRoamEnabled((v) => !v);
+              }}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold border transition ${
                 roamEnabled
                   ? 'border-emerald-400 bg-emerald-600/30 text-emerald-200 shadow-sm'
@@ -1009,15 +1027,22 @@ export function PlaygroundStage({
             <div className="mx-1 h-5 w-px bg-slate-800" />
 
             <span className="text-[11px] text-slate-400">全员动作:</span>
-            {ACTION_OPTIONS.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => handleBatchAction(a.id)}
-                className="rounded px-2 py-1 text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition"
-              >
-                {a.label}
-              </button>
-            ))}
+            {ACTION_OPTIONS.map((a) => {
+              const isBatchActive = !roamEnabled && activeBatchAction === a.id;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => handleBatchAction(a.id)}
+                  className={`rounded px-2 py-1 text-xs font-medium transition ${
+                    isBatchActive
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  {a.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -1130,14 +1155,18 @@ export function PlaygroundStage({
                   return (
                     <button
                       key={a.id}
-                      onClick={() =>
+                      onClick={() => {
+                        setActiveBatchAction(null);
+                        setIsPlaying(true);
                         updateSelectedActor((actor) => ({
                           ...actor,
                           targetX: null,
                           targetY: null,
+                          actionStartedAtMs: simTimeRef.current,
+                          timeOffsetMs: 0,
                           config: { ...actor.config, action: a.id },
-                        }))
-                      }
+                        }));
+                      }}
                       className={`rounded border py-1 text-[11px] font-medium transition ${
                         active
                           ? 'border-sky-400 bg-sky-600/30 text-white'
