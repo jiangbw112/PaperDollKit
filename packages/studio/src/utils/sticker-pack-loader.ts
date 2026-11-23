@@ -248,10 +248,10 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
       belt_waist:  { defaultOffset: { x: 0, y: 15 },  defaultPivot: { x: 0.5, y: 0.50 } },
       back_cape:   { defaultOffset: { x: -2, y: -42 }, defaultPivot: { x: 0.5, y: 0.18 } },
       back_prop:   { defaultOffset: { x: 0, y: -34 }, defaultPivot: { x: 0.5, y: 0.50 } },
-      front_arm:   { defaultOffset: { x: -23, y: -36 }, defaultPivot: { x: 0.5, y: 0.20 } },
-      main_hand:   { defaultOffset: { x: 0, y: 34 },  defaultPivot: { x: 0.34, y: 0.72 } },
-      back_arm:    { defaultOffset: { x: 23, y: -36 }, defaultPivot: { x: 0.5, y: 0.20 } },
-      off_hand:    { defaultOffset: { x: 6, y: 30 },  defaultPivot: { x: 0.5, y: 0.50 } },
+      front_arm:   { defaultOffset: { x: 23, y: -36 }, defaultPivot: { x: 0.5, y: 0.20 } },
+      main_hand:   { defaultOffset: { x: 4, y: 34 },  defaultPivot: { x: 0.35, y: 0.71 } },
+      back_arm:    { defaultOffset: { x: -23, y: -36 }, defaultPivot: { x: 0.5, y: 0.20 } },
+      off_hand:    { defaultOffset: { x: -8, y: 30 }, defaultPivot: { x: 0.5, y: 0.50 } },
       head_base:   { defaultOffset: { x: 0, y: -50 }, defaultPivot: { x: 0.5, y: 0.80 } },
       face_eyes:   { defaultOffset: { x: 0, y: -26 }, defaultPivot: { x: 0.5, y: 0.50 } },
       face_beard:  { defaultOffset: { x: 0, y: -14 }, defaultPivot: { x: 0.5, y: 0.45 } },
@@ -299,8 +299,8 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     const sx = d === 'E' ? 0.80 : d === 'SE' || d === 'NE' ? 0.94 : 1.0;
     const sockets: SpriteFrameRef['sockets'] = {
       neck: { x: 0, y: -48 },
-      shoulder_front: { x: -23 * sx, y: -36 },
-      shoulder_back: { x: 23 * sx, y: -36 },
+      shoulder_front: { x: 23 * sx, y: -36 },
+      shoulder_back: { x: -23 * sx, y: -36 },
       back_mount: { x: -2 * sx, y: -42 },
     };
     return {
@@ -379,8 +379,8 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     const socketName = slotId === 'front_arm' ? 'hand_main' : 'hand_off';
     const handSocket: SpriteFrameRef['sockets'] = {
       [socketName]: slotId === 'front_arm'
-        ? { x: -5, y: 34, rotationDeg: -4 }
-        : { x: 10, y: 31, rotationDeg: 4 },
+        ? { x: 5, y: 34, rotationDeg: 4 }
+        : { x: -9, y: 31, rotationDeg: -4 },
     };
     addSharedPart(slotId, 'bare', '素体短袖', makeFrame('arm_bare', { x: 0.5, y: 0.20 }, true, handSocket));
     addSharedPart(slotId, 'long_sleeve', '长袖上衣', makeFrame('arm_long_sleeve', { x: 0.5, y: 0.20 }, true, handSocket));
@@ -453,20 +453,20 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     }));
   }
 
-  // 15. Main Hand Weapons (7 styles including lantern for Scholar!)
-  addSharedPart('main_hand', 'sword', '骑士长剑', makeFrame('weapon_sword', { x: 0.64, y: 0.72 }));
-  addSharedPart('main_hand', 'staff', '秘法长杖', makeFrame('weapon_staff', { x: 0.61, y: 0.69 }));
-  addSharedPart('main_hand', 'bow', '猎手长弓', makeFrame('weapon_bow', { x: 0.58, y: 0.50 }));
-  addSharedPart('main_hand', 'axe', '战斧', makeFrame('weapon_axe', { x: 0.60, y: 0.72 }));
-  addSharedPart('main_hand', 'dagger', '短刃', makeFrame('weapon_dagger', { x: 0.63, y: 0.67 }));
-  addSharedPart('main_hand', 'hammer', '锻造铁锤', makeFrame('weapon_hammer', { x: 0.59, y: 0.72 }));
+  // 15. Main Hand Weapons (7 styles held on forward +X hand, pointing 斜前方!)
+  addSharedPart('main_hand', 'sword', '骑士长剑', makeFrame('weapon_sword', { x: 0.35, y: 0.71 }));
+  addSharedPart('main_hand', 'staff', '秘法长杖', makeFrame('weapon_staff', { x: 0.36, y: 0.69 }));
+  addSharedPart('main_hand', 'bow', '猎手长弓', makeFrame('weapon_bow', { x: 0.48, y: 0.50 }));
+  addSharedPart('main_hand', 'axe', '战斧', makeFrame('weapon_axe', { x: 0.35, y: 0.72 }));
+  addSharedPart('main_hand', 'dagger', '短刃', makeFrame('weapon_dagger', { x: 0.36, y: 0.67 }));
+  addSharedPart('main_hand', 'hammer', '锻造铁锤', makeFrame('weapon_hammer', { x: 0.35, y: 0.72 }));
   addSharedPart('main_hand', 'lantern', '提灯', makeFrame('weapon_lantern', { x: 0.50, y: 0.28 }));
 
-  // 16. Off Hand Equipment (4 styles)
+  // 16. Off Hand Equipment (4 styles held on rear -X hand)
   addSharedPart('off_hand', 'shield', '纹章圆盾', makeFrame('offhand_shield', { x: 0.50, y: 0.50 }));
   addSharedPart('off_hand', 'book', '魔法典籍', makeFrame('offhand_book', { x: 0.50, y: 0.50 }));
   addSharedPart('off_hand', 'lantern', '提灯', makeFrame('offhand_lantern', { x: 0.50, y: 0.28 }));
-  addSharedPart('off_hand', 'dagger_off', '副手短刃', makeFrame('offhand_dagger_off', { x: 0.34, y: 0.67 }));
+  addSharedPart('off_hand', 'dagger_off', '副手短刃', makeFrame('offhand_dagger_off', { x: 0.64, y: 0.67 }));
 
   const pack: AssetPackManifest = {
     schemaVersion: SCHEMA_VERSION,
