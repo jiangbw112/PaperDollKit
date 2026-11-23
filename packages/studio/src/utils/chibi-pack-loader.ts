@@ -189,7 +189,7 @@ export async function loadChibiHDPack(basePath = '/assets/chibi-hero'): Promise<
   const shadowFrame = makeFrame('shadow_oval', { x: 0.5, y: 0.5 }, false);
   registerDualFacingPart('shadow', 'oval', '柔光椭圆投影', shadowFrame, shadowFrame, 'none');
 
-  // Body base with chibi sockets + 6-frame bare-leg walk stride
+  // Body base (upper torso/tunic/neck only — legs live cleanly in legs_bottom so bare legs NEVER peek behind armor!)
   const bodySockets: SpriteFrameRef['sockets'] = {
     neck: { x: 0, y: -86 },
     shoulder_front: { x: -24, y: -72 },
@@ -197,14 +197,9 @@ export async function loadChibiHDPack(basePath = '/assets/chibi-hero'): Promise<
     back_mount: { x: -4, y: -76 },
   };
   const bodyFront = makeFrame('body_base_front', { x: 0.5, y: 0.92 }, true, bodySockets);
-  const bodyWalkFrames = makeWalkFrames('body_base_front', { x: 0.5, y: 0.92 }, 16, 8, bodySockets);
-  registerDualFacingPart('body_base', 'chibi_body', 'Q版基础素体', bodyFront, bodyFront, 'mask_ramp', {
-    front: bodyWalkFrames,
-    back: bodyWalkFrames,
-    fps: 8,
-  });
+  registerDualFacingPart('body_base', 'chibi_body', 'Q版上身素体', bodyFront, bodyFront, 'mask_ramp');
 
-  // Legs (6-frame armored stride sequence for both front & back facings!)
+  // Legs (6-frame stride sequences for both armored greaves and bare chibi legs!)
   registerDualFacingPart(
     'legs_bottom',
     'greaves',
@@ -215,6 +210,21 @@ export async function loadChibiHDPack(basePath = '/assets/chibi-hero'): Promise<
     {
       front: makeWalkFrames('legs_greaves_front', { x: 0.5, y: 0.18 }, 18, 10),
       back: makeWalkFrames('legs_greaves_back', { x: 0.5, y: 0.18 }, 18, 10),
+      fps: 8,
+    },
+  );
+  const bareLegsIdle = makeFrame('legs_bare_front', { x: 0.5, y: 0.08 });
+  const bareLegsWalk = makeWalkFrames('legs_bare_front', { x: 0.5, y: 0.08 }, 16, 10);
+  registerDualFacingPart(
+    'legs_bottom',
+    'bare_legs',
+    '素体赤足双腿',
+    bareLegsIdle,
+    bareLegsIdle,
+    'mask_ramp',
+    {
+      front: bareLegsWalk,
+      back: bareLegsWalk,
       fps: 8,
     },
   );

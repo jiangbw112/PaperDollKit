@@ -159,28 +159,32 @@
     "width": 96,
     "height": 96
   },
-  "body_base_front_walk_0": {
-    "width": 114,
-    "height": 122
+  "legs_bare_front": {
+    "width": 60,
+    "height": 36
   },
-  "body_base_front_walk_1": {
-    "width": 114,
-    "height": 122
+  "legs_bare_front_walk_0": {
+    "width": 92,
+    "height": 56
   },
-  "body_base_front_walk_2": {
-    "width": 114,
-    "height": 122
+  "legs_bare_front_walk_1": {
+    "width": 92,
+    "height": 56
   },
-  "body_base_front_walk_3": {
-    "width": 114,
-    "height": 122
+  "legs_bare_front_walk_2": {
+    "width": 92,
+    "height": 56
   },
-  "body_base_front_walk_4": {
-    "width": 114,
-    "height": 122
+  "legs_bare_front_walk_3": {
+    "width": 92,
+    "height": 56
   },
-  "body_base_front_walk_5": {
-    "width": 114,
-    "height": 122
+  "legs_bare_front_walk_4": {
+    "width": 92,
+    "height": 56
+  },
+  "legs_bare_front_walk_5": {
+    "width": 92,
+    "height": 56
   }
 }

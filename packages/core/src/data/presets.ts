@@ -246,21 +246,11 @@ export const DEFAULT_ARPG_ANIMATIONS: Record<string, AnimationClip> = {
       {
         slotId: 'body_base',
         keyframes: [
-          { timeMs: 0, y: 0, rotationDeg: -2.5, easing: 'easeInOut' },
-          { timeMs: 188, y: -6, rotationDeg: 0, easing: 'easeInOut' },
-          { timeMs: 375, y: 0, rotationDeg: 2.5, easing: 'easeInOut' },
-          { timeMs: 563, y: -6, rotationDeg: 0, easing: 'easeInOut' },
-          { timeMs: 750, y: 0, rotationDeg: -2.5, easing: 'easeInOut' },
-        ],
-      },
-      {
-        slotId: 'legs_bottom',
-        keyframes: [
-          { timeMs: 0, y: 1, rotationDeg: 2, easing: 'easeInOut' },
-          { timeMs: 188, y: 3, rotationDeg: 0, easing: 'easeInOut' },
-          { timeMs: 375, y: 1, rotationDeg: -2, easing: 'easeInOut' },
-          { timeMs: 563, y: 3, rotationDeg: 0, easing: 'easeInOut' },
-          { timeMs: 750, y: 1, rotationDeg: 2, easing: 'easeInOut' },
+          { timeMs: 0, y: 0, rotationDeg: -2.2, easing: 'easeInOut' },
+          { timeMs: 188, y: -5, rotationDeg: 0, easing: 'easeInOut' },
+          { timeMs: 375, y: 0, rotationDeg: 2.2, easing: 'easeInOut' },
+          { timeMs: 563, y: -5, rotationDeg: 0, easing: 'easeInOut' },
+          { timeMs: 750, y: 0, rotationDeg: -2.2, easing: 'easeInOut' },
         ],
       },
       {
