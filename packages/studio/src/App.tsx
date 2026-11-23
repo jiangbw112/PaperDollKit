@@ -25,10 +25,12 @@ import {
   Sliders,
   Sparkles,
   Upload,
+  Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExportModal } from './components/ExportModal.tsx';
 import { LutPreviewBar } from './components/LutPreviewBar.tsx';
+import { PlaygroundStage } from './components/PlaygroundStage.tsx';
 import { ViewportCanvas } from './components/ViewportCanvas.tsx';
 import { downloadTextFile, importBrowserFiles } from './utils/browser-import.ts';
 import { loadStickerHDPack } from './utils/sticker-pack-loader.ts';
@@ -42,6 +44,7 @@ const COMPASS_GRID: (DirectionId | null)[][] = [
 export default function App() {
   const initialShell = useMemo(() => createStarterIsometricPack(), []);
 
+  const [workspaceMode, setWorkspaceMode] = useState<'editor' | 'playground'>('editor');
   const [pack, setPack] = useState<AssetPackManifest>(initialShell);
   const [images, setImages] = useState<Map<string, ImportedImage>>(() => new Map());
   const [imagesVersion, setImagesVersion] = useState(0);
@@ -310,22 +313,47 @@ export default function App() {
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-indigo-600 text-xs font-bold shadow">
             PD
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold tracking-tight text-white">
-                PaperDollKit v2 Studio
-              </span>
-              <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium text-emerald-300 border border-emerald-500/30">
-                {backend === 'webgl2' ? 'WebGL2 LUT Shader' : 'Canvas2D Fallback'}
-              </span>
-              <span className="hidden sm:inline rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
-                {pack.canvasSize.width}×{pack.canvasSize.height} · 暗黑俯视 8 向
-              </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold tracking-tight text-white">
+              PaperDollKit v2
+            </span>
+            {/* Workspace Mode Switcher: Single-Actor Studio vs Multi-Actor Playground */}
+            <div className="flex items-center rounded-lg border border-slate-700/80 bg-slate-950/80 p-0.5 text-xs">
+              <button
+                onClick={() => setWorkspaceMode('editor')}
+                className={`flex items-center gap-1 rounded-md px-2.5 py-0.5 font-semibold transition ${
+                  workspaceMode === 'editor'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                角色编辑器
+              </button>
+              <button
+                onClick={() => {
+                  setPresetWallOpen(false);
+                  setWorkspaceMode('playground');
+                }}
+                className={`flex items-center gap-1 rounded-md px-2.5 py-0.5 font-semibold transition ${
+                  workspaceMode === 'playground'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                多人 Playground
+              </button>
             </div>
+            <span className="hidden lg:inline rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium text-emerald-300 border border-emerald-500/30">
+              {backend === 'webgl2' ? 'WebGL2 LUT' : 'Canvas2D'}
+            </span>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 whitespace-nowrap">
+          {workspaceMode === 'editor' && (
+          <>
           {/* 1 Mannequin + 16 Presets Gallery Trigger + Randomize */}
           <div className="relative flex items-center gap-1 mr-1 border-r border-slate-800 pr-2">
             <button
@@ -494,11 +522,54 @@ export default function App() {
             <FileImage className="h-3.5 w-3.5" />
             PNG
           </button>
+          </>
+          )}
+          {workspaceMode === 'playground' && (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="hidden md:inline">
+                空白场景多人同屏测试 · 支持 Y 轴遮挡、拖拽排位与 AI 漫游
+              </span>
+              <button
+                onClick={() => setExportModalOpen(true)}
+                className="flex items-center gap-1.5 rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500 transition shadow-sm"
+              >
+                <Package className="h-3.5 w-3.5" />
+                导出 Godot/Cocos
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
+      {/* Multi-Character Blank-Scene Playground (kept mounted so placed actors persist across tab switches) */}
+      <div className={workspaceMode === 'playground' ? 'flex min-h-0 flex-1' : 'hidden'}>
+        <PlaygroundStage
+          active={workspaceMode === 'playground'}
+          pack={pack}
+          images={images}
+          imagesVersion={imagesVersion}
+          currentEditorConfig={config}
+          currentEditorPresetName={
+            pack.presets.find((p) => p.id === activePresetId)?.name ?? '自定义角色'
+          }
+          debugMaskView={debugMaskView}
+          onToggleDebugMask={() => setDebugMaskView((v) => !v)}
+          onEditActorInStudio={(actorCfg) => {
+            setConfig({
+              ...actorCfg,
+              slots: { ...actorCfg.slots },
+              palettes: { ...actorCfg.palettes },
+            });
+            setActivePresetId('custom');
+            setWorkspaceMode('editor');
+            showToast('已将该角色载入编辑器，修改后可再次添加到多人场景');
+          }}
+          onToast={showToast}
+        />
+      </div>
+
       {/* Main 3-Pane Studio Workspace */}
-      <div className="flex min-h-0 flex-1">
+      <div className={workspaceMode === 'editor' ? 'flex min-h-0 flex-1' : 'hidden'}>
         {/* LEFT PANEL: 17-Slot Hierarchy & Part Switcher */}
         <aside className="flex w-72 shrink-0 flex-col border-r border-slate-800/90 bg-slate-900/60">
           <div className="flex items-center justify-between border-b border-slate-800/80 px-3 py-2">

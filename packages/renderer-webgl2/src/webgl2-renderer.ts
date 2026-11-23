@@ -211,6 +211,14 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
     return tex;
   }
 
+  clear(clearColor: readonly [number, number, number, number] = [0, 0, 0, 0]): void {
+    if (this.disposed) return;
+    const gl = this.gl;
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
   render(
     pack: AssetPackManifest,
     frame: EvaluatedFrame,
@@ -224,8 +232,10 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
     const clear = opts.clearColor ?? [0, 0, 0, 0];
 
     gl.viewport(0, 0, viewW, viewH);
-    gl.clearColor(clear[0], clear[1], clear[2], clear[3]);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (opts.clearBeforeRender !== false) {
+      gl.clearColor(clear[0], clear[1], clear[2], clear[3]);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
 
     gl.enable(gl.BLEND);
     gl.blendFuncSeparate(

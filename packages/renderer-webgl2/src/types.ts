@@ -13,6 +13,8 @@ export interface ImageLookup {
 export interface RenderFrameOptions {
   /** Clear color RGBA normalized [0..1] (default transparent [0,0,0,0]). */
   clearColor?: readonly [number, number, number, number];
+  /** Whether to clear the render target before drawing this frame (default true). Set false for multi-character compositing. */
+  clearBeforeRender?: boolean;
   /** Viewport zoom multiplier (default 1). */
   zoom?: number;
   /** Viewport horizontal pan in CSS/canvas pixels (default 0). */
@@ -27,6 +29,8 @@ export interface RenderFrameOptions {
 
 export interface PaperDollRenderer {
   readonly backend: 'webgl2' | 'canvas2d';
+  /** Clears the viewport with an optional normalized RGBA color. */
+  clear(clearColor?: readonly [number, number, number, number]): void;
   render(
     pack: AssetPackManifest,
     frame: EvaluatedFrame,

@@ -134,6 +134,21 @@ export class Canvas2DPaperDollRenderer implements PaperDollRenderer {
     return off;
   }
 
+  clear(clearColor?: readonly [number, number, number, number]): void {
+    const ctx = this.ctx;
+    const viewW = this.canvas.width;
+    const viewH = this.canvas.height;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, viewW, viewH);
+    if (clearColor && clearColor[3] > 0) {
+      const [r, g, b, a] = clearColor;
+      ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
+    ctx.restore();
+  }
+
   render(
     pack: AssetPackManifest,
     frame: EvaluatedFrame,
@@ -149,12 +164,13 @@ export class Canvas2DPaperDollRenderer implements PaperDollRenderer {
 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, viewW, viewH);
-
-    if (opts.clearColor && opts.clearColor[3] > 0) {
-      const [r, g, b, a] = opts.clearColor;
-      ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
-      ctx.fillRect(0, 0, viewW, viewH);
+    if (opts.clearBeforeRender !== false) {
+      ctx.clearRect(0, 0, viewW, viewH);
+      if (opts.clearColor && opts.clearColor[3] > 0) {
+        const [r, g, b, a] = opts.clearColor;
+        ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
+        ctx.fillRect(0, 0, viewW, viewH);
+      }
     }
 
     ctx.imageSmoothingEnabled = true;
