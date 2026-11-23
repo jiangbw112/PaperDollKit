@@ -61,7 +61,7 @@ export function LutPreviewBar({
           ref={canvasRef}
           width={LUT_TEXTURE_WIDTH}
           height={LUT_TEXTURE_HEIGHT}
-          className="h-14 flex-1 rounded border border-slate-700/80"
+          className="h-14 min-w-0 flex-1 rounded border border-slate-700/80"
           style={{ imageRendering: 'pixelated' }}
         />
       </div>

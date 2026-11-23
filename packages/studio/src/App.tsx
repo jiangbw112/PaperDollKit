@@ -9,11 +9,13 @@ import {
 import type { ImportReport, ImportedImage } from '@paperdollkit/importers';
 import {
   Bug,
+  Dices,
   Download,
   Eye,
   EyeOff,
   FileImage,
   FolderUp,
+  Grid2x2,
   Layers,
   Package,
   Palette,
@@ -54,10 +56,12 @@ export default function App() {
   });
 
   const [selectedSlotId, setSelectedSlotId] = useState<SlotId>('front_arm');
+  const [activePresetId, setActivePresetId] = useState<string>('paladin');
+  const [presetWallOpen, setPresetWallOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [timeMs, setTimeMs] = useState(0);
   const [speed, setSpeed] = useState(1);
-  const [zoom, setZoom] = useState(1.85);
+  const [zoom, setZoom] = useState(1.9);
   const [explodeSpread, setExplodeSpread] = useState(0);
   const [showGizmos, setShowGizmos] = useState(false);
   const [debugMaskView, setDebugMaskView] = useState(false);
@@ -73,10 +77,11 @@ export default function App() {
       setImages(sticker.images);
       setImagesVersion((v) => v + 1);
       const ch = new PaperDollCharacter(sticker.pack, {
-        preset: 'prince_knight',
+        preset: 'paladin',
         direction: 'SE',
         action: 'idle',
       });
+      setActivePresetId('paladin');
       setConfig(ch.toJSON());
     } catch (err) {
       setImportToast(`资源包加载失败: ${err instanceof Error ? err.message : String(err)}`);
@@ -321,17 +326,112 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1.5 whitespace-nowrap">
-          {/* Presets quick bar */}
-          <div className="hidden lg:flex items-center gap-1 mr-1 border-r border-slate-800 pr-2">
-            {pack.presets.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => mutateCharacter((ch) => ch.applyPreset(p.id))}
-                className="rounded px-2 py-1 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition whitespace-nowrap"
-              >
-                {p.name}
-              </button>
-            ))}
+          {/* 1 Mannequin + 16 Presets Gallery Trigger + Randomize */}
+          <div className="relative flex items-center gap-1 mr-1 border-r border-slate-800 pr-2">
+            <button
+              onClick={() => {
+                setActivePresetId('mannequin');
+                mutateCharacter((ch) => ch.applyPreset('mannequin'));
+              }}
+              className={`rounded px-2 py-1 text-xs font-medium border transition ${
+                activePresetId === 'mannequin'
+                  ? 'border-amber-500/60 bg-amber-500/20 text-amber-200'
+                  : 'border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white'
+              }`}
+              title="还原 00 · 原木木头人素体"
+            >
+              木头人
+            </button>
+
+            <button
+              onClick={() => setPresetWallOpen((v) => !v)}
+              className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold border transition ${
+                presetWallOpen
+                  ? 'border-sky-400 bg-sky-600/30 text-white'
+                  : 'border-slate-700 bg-slate-800 text-sky-200 hover:border-sky-500/60 hover:text-white'
+              }`}
+            >
+              <Grid2x2 className="h-3.5 w-3.5 text-sky-400" />
+              <span>
+                {pack.presets.find((p) => p.id === activePresetId)?.name ?? '16 角色预设墙'}
+              </span>
+              <span className="rounded bg-slate-900/90 px-1 py-0.2 font-mono text-[10px] text-slate-400">
+                {pack.presets.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                const palKeys = Object.keys(pack.palettes);
+                const skinKeys = Object.keys(pack.skins).filter((k) => k !== 'wood');
+                const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
+                const mainPal = pick(palKeys);
+                const accentPal = pick(palKeys);
+                setActivePresetId('custom');
+                mutateCharacter((ch) => {
+                  ch.setSkin(pick(skinKeys));
+                  for (const s of pack.slots) {
+                    const list = pack.parts[s.id] ?? [];
+                    if (list.length === 0) continue;
+                    const choices = s.required ? list.map((p) => p.id) : ['none', ...list.map((p) => p.id)];
+                    ch.setSlot(s.id, pick(choices));
+                    ch.setPalette(s.id, Math.random() < 0.65 ? mainPal : accentPal);
+                  }
+                  ch.setSlot('back_arm', ch.slots.front_arm ?? 'bare');
+                  ch.setPalette('back_arm', ch.palettes.front_arm ?? mainPal);
+                });
+              }}
+              className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/80 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition"
+              title="随机拼装一个角色"
+            >
+              <Dices className="h-3.5 w-3.5 text-amber-400" />
+              随机
+            </button>
+
+            {/* 17-Preset Gallery Popover */}
+            {presetWallOpen && (
+              <div className="absolute right-0 top-10 z-40 w-[560px] rounded-xl border border-slate-700/90 bg-slate-900/98 p-3 shadow-2xl backdrop-blur">
+                <div className="mb-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-white">
+                    1 个木头人 → 16 个完整角色预设墙（0xsu 风格）
+                  </span>
+                  <span className="text-[11px] text-slate-400">点击即刻换装</span>
+                </div>
+                <div className="grid max-h-[380px] grid-cols-3 gap-1.5 overflow-y-auto pr-0.5">
+                  {pack.presets.map((p) => {
+                    const isCurrent = activePresetId === p.id;
+                    const swatchColor =
+                      p.id === 'mannequin'
+                        ? pack.skins.wood?.swatch ?? '#cfa06b'
+                        : pack.palettes[p.palettes.torso_top ?? 'cobalt']?.swatch ?? '#2e6bd1';
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setActivePresetId(p.id);
+                          mutateCharacter((ch) => ch.applyPreset(p.id));
+                          setPresetWallOpen(false);
+                        }}
+                        className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition ${
+                          isCurrent
+                            ? 'border-sky-400 bg-sky-600/25 text-white'
+                            : 'border-slate-800 bg-slate-950/70 text-slate-200 hover:border-slate-600 hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <span
+                          className="h-6 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: swatchColor }}
+                        />
+                        <div className="min-w-0">
+                          <div className="truncate text-[11px] font-semibold">{p.name}</div>
+                          <div className="truncate text-[9px] text-slate-400">{p.tag}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <button
