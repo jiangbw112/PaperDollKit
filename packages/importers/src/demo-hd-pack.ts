@@ -220,7 +220,7 @@ function isBackDir(dir: string): boolean {
 
 /**
  * Generates an out-of-the-box high-resolution (256×256) anti-aliased painted
- * Diablo-style isometric starter AssetPack with matching RGBA Semantic Masks.
+ * Isometric 2.5D starter AssetPack with matching RGBA Semantic Masks.
  *
  * Allows immediate visual inspection of WebGL2 Mask+Ramp LUT recoloring, smooth
  * hand skin synchronization, 8-dir isometric mirroring, and cutout animations
@@ -605,7 +605,7 @@ export function createDemoHDPackWithImages(): {
   const pack: AssetPackManifest = {
     schemaVersion: SCHEMA_VERSION,
     id: 'demo-isometric-hd',
-    name: '暗黑俯视高清示例资产包 (256×256)',
+    name: '2.5D 等距俯视高清示例资产包 (256×256)',
     canvasSize: { width: 256, height: 256 },
     perspective: 'isometric_8',
     directions: ISOMETRIC_8_DIRECTIONS,

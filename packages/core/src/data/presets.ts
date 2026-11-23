@@ -13,7 +13,7 @@ import {
 } from '../schema/types.js';
 
 /**
- * Diablo-style 8-direction isometric facing table.
+ * Isometric 2.5D 8-direction facing table.
  * Artists only author 5 unique facings (S, SE, E, NE, N); W, SW, NW automatically
  * mirror E, SE, NE via mirrorFrom + flipX.
  */
@@ -400,7 +400,7 @@ function makePart(
   mode: 'rigged' | 'sequence' = 'rigged',
   sockets?: SpriteFrameRef['sockets'],
 ): PartAsset {
-  // Author only 5 canonical Diablo facings; W/SW/NW resolve via mirrorFrom!
+  // Author only 5 canonical isometric facings; W/SW/NW resolve via mirrorFrom!
   const canonicalDirs = ['S', 'SE', 'E', 'NE', 'N'];
   const directions: PartAsset['directions'] = {};
   for (const d of canonicalDirs) {
@@ -431,7 +431,7 @@ function makePart(
 }
 
 /**
- * Builds a complete, schema-valid HD Diablo-isometric starter AssetPackManifest
+ * Builds a complete, schema-valid HD Isometric 2.5D starter AssetPackManifest
  * demonstrating both rigged parts and hybrid sequence parts with socket attachment.
  */
 export function createStarterIsometricPack(): AssetPackManifest {
@@ -477,7 +477,7 @@ export function createStarterIsometricPack(): AssetPackManifest {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: 'starter-isometric-hd',
-    name: 'Diablo-Style Isometric HD Starter Pack',
+    name: 'Isometric 2.5D HD Starter Pack',
     canvasSize: { width: 256, height: 256 },
     perspective: 'isometric_8',
     directions: ISOMETRIC_8_DIRECTIONS,

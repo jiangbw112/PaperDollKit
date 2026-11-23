@@ -1,7 +1,7 @@
 /**
  * PaperDollKit v2.0 Canonical Intermediate Representation (IR)
  *
- * Designed for high-resolution 2D modular paper-doll characters (Diablo-style
+ * Designed for high-resolution 2D modular paper-doll characters (Isometric 2.5D
  * isometric 8-dir/4-dir and side-scrolling 2-dir) with hybrid animation
  * (hierarchical cutout rig + per-part frame sequences) and Mask+Ramp LUT
  * semantic recoloring targeting WebGL2, Godot 4.x, and Cocos Creator 3.x.
@@ -165,7 +165,7 @@ export interface SpriteFrameRef {
 export interface PartDirectionVisual {
   /**
    * - 'rigged':   Single HD sprite driven by hierarchical bone/slot transform tracks.
-   * - 'sequence': Pre-rendered or hand-drawn multi-frame sequence per action (Diablo DCC style),
+   * - 'sequence': Pre-rendered or hand-drawn multi-frame sequence per action (classic isometric ARPG style),
    *               which can still emit per-frame sockets for attached weapons/shields.
    */
   mode: 'rigged' | 'sequence';

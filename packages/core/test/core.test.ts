@@ -17,7 +17,7 @@ import {
 describe('@paperdollkit/core v2.0 IR & runtime', () => {
   const pack = createStarterIsometricPack();
 
-  it('validates starter Diablo-isometric AssetPackManifest cleanly', () => {
+  it('validates starter Isometric 2.5D AssetPackManifest cleanly', () => {
     const res = validateAssetPack(pack);
     expect(res.ok).toBe(true);
     expect(pack.directions).toHaveLength(8);
@@ -46,7 +46,7 @@ describe('@paperdollkit/core v2.0 IR & runtime', () => {
     }
   });
 
-  it('resolves 8-dir Diablo mirroring (SW mirrors SE) with exact reflection symmetry', () => {
+  it('resolves 8-dir isometric mirroring (SW mirrors SE) with exact reflection symmetry', () => {
     const hero = new PaperDollCharacter(pack, { preset: 'knight', action: 'attack' });
 
     hero.setDirection('SE');

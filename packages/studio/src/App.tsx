@@ -758,10 +758,10 @@ export default function App() {
 
         {/* RIGHT PANEL: Direction Compass, LUT Palette, Skin & Slot Inspector */}
         <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-l border-slate-800/90 bg-slate-900/60 p-3 space-y-4">
-          {/* 8-Direction Diablo Isometric Compass */}
+          {/* 8-Direction Isometric Compass */}
           <section>
             <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-200">
-              <span>暗黑 8 向朝向（5 原始 + 3 镜像）</span>
+              <span>等距 8 向朝向（5 原始 + 3 镜像）</span>
               <span className="font-mono text-[11px] text-sky-400">{config.direction}</span>
             </div>
             <div className="grid grid-cols-3 gap-1.5">

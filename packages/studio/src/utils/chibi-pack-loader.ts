@@ -42,7 +42,7 @@ const CANONICAL_FRONT_DIRS = ['S', 'SE', 'E'] as const;
 const CANONICAL_BACK_DIRS = ['N', 'NE'] as const;
 
 /**
- * Loads the Q-version (Chibi) HD painted 2D Diablo-isometric asset pack
+ * Loads the Q-version (Chibi) HD painted 2D Isometric 2.5D asset pack
  * from `/assets/chibi-hero/` (real external PNG albedos + paired RGBA semantic masks).
  */
 export async function loadChibiHDPack(basePath = '/assets/chibi-hero'): Promise<{
@@ -342,7 +342,7 @@ export async function loadChibiHDPack(basePath = '/assets/chibi-hero'): Promise<
   const pack: AssetPackManifest = {
     schemaVersion: SCHEMA_VERSION,
     id: 'chibi-fantasy-hd',
-    name: 'Q版暗黑奇幻高清角色包 (256×256)',
+    name: 'Q版奇幻高清角色包 (256×256)',
     canvasSize: { width: 256, height: 256 },
     perspective: 'isometric_8',
     directions: ISOMETRIC_8_DIRECTIONS,

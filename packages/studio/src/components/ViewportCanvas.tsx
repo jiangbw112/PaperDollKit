@@ -214,7 +214,7 @@ export function ViewportCanvas({
       }}
       className="relative flex-1 overflow-hidden bg-[radial-gradient(circle_at_50%_45%,rgba(30,41,59,0.72),rgba(2,6,23,1))] select-none cursor-grab active:cursor-grabbing"
     >
-      {/* Isometric 2:1 Diablo ground grid */}
+      {/* Isometric 2:1 ground grid */}
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full"
         width={size.width}
