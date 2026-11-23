@@ -134,22 +134,62 @@ export async function loadChibiHDPack(basePath = '/assets/chibi-hero'): Promise<
     frontFrame: SpriteFrameRef,
     backFrame: SpriteFrameRef,
     recolorMode: PartAsset['recolorMode'] = 'mask_ramp',
+    walkSeq?: { front: SpriteFrameRef[]; back: SpriteFrameRef[]; fps?: number },
   ) => {
     const directions: PartAsset['directions'] = {};
     for (const d of CANONICAL_FRONT_DIRS) {
-      directions[d] = { mode: 'rigged', frames: [frontFrame] };
+      directions[d] = walkSeq
+        ? {
+            mode: 'sequence',
+            frames: [frontFrame],
+            actionFrames: { walk: walkSeq.front },
+            fps: walkSeq.fps ?? 8,
+          }
+        : { mode: 'rigged', frames: [frontFrame] };
     }
     for (const d of CANONICAL_BACK_DIRS) {
-      directions[d] = { mode: 'rigged', frames: [backFrame] };
+      directions[d] = walkSeq
+        ? {
+            mode: 'sequence',
+            frames: [backFrame],
+            actionFrames: { walk: walkSeq.back },
+            fps: walkSeq.fps ?? 8,
+          }
+        : { mode: 'rigged', frames: [backFrame] };
     }
     parts[slotId]!.push({ id, name, slotId, recolorMode, directions });
+  };
+
+  /** Computes exact normalized pivot inside a symmetrically padded walk frame so idle & walk align 1:1. */
+  const paddedPivot = (
+    baseKey: string,
+    basePivot: { x: number; y: number },
+    padX: number,
+    padY: number,
+  ) => {
+    const orig = sizes[baseKey] ?? { width: 60, height: 76 };
+    return {
+      x: (basePivot.x * orig.width + padX) / (orig.width + padX * 2),
+      y: (basePivot.y * orig.height + padY) / (orig.height + padY * 2),
+    };
+  };
+
+  const makeWalkFrames = (
+    baseKey: string,
+    basePivot: { x: number; y: number },
+    padX: number,
+    padY: number,
+    sockets?: SpriteFrameRef['sockets'],
+  ): SpriteFrameRef[] => {
+    const p = paddedPivot(baseKey, basePivot, padX, padY);
+    return [0, 1, 2, 3, 4, 5].map((idx) => makeFrame(`${baseKey}_walk_${idx}`, p, true, sockets));
   };
 
   // Shadow
   const shadowFrame = makeFrame('shadow_oval', { x: 0.5, y: 0.5 }, false);
   registerDualFacingPart('shadow', 'oval', '柔光椭圆投影', shadowFrame, shadowFrame, 'none');
 
-  // Body base with chibi sockets
+  // Body base with chibi sockets + 6-frame bare-leg walk stride
   const bodySockets: SpriteFrameRef['sockets'] = {
     neck: { x: 0, y: -86 },
     shoulder_front: { x: -24, y: -72 },
@@ -157,15 +197,26 @@ export async function loadChibiHDPack(basePath = '/assets/chibi-hero'): Promise<
     back_mount: { x: -4, y: -76 },
   };
   const bodyFront = makeFrame('body_base_front', { x: 0.5, y: 0.92 }, true, bodySockets);
-  registerDualFacingPart('body_base', 'chibi_body', 'Q版基础素体', bodyFront, bodyFront);
+  const bodyWalkFrames = makeWalkFrames('body_base_front', { x: 0.5, y: 0.92 }, 16, 8, bodySockets);
+  registerDualFacingPart('body_base', 'chibi_body', 'Q版基础素体', bodyFront, bodyFront, 'mask_ramp', {
+    front: bodyWalkFrames,
+    back: bodyWalkFrames,
+    fps: 8,
+  });
 
-  // Legs
+  // Legs (6-frame armored stride sequence for both front & back facings!)
   registerDualFacingPart(
     'legs_bottom',
     'greaves',
     '重甲护腿战靴',
     makeFrame('legs_greaves_front', { x: 0.5, y: 0.18 }),
     makeFrame('legs_greaves_back', { x: 0.5, y: 0.18 }),
+    'mask_ramp',
+    {
+      front: makeWalkFrames('legs_greaves_front', { x: 0.5, y: 0.18 }, 18, 10),
+      back: makeWalkFrames('legs_greaves_back', { x: 0.5, y: 0.18 }, 18, 10),
+      fps: 8,
+    },
   );
 
   // Torso Top

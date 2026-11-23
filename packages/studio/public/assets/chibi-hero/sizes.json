@@ -110,5 +110,77 @@
   "shadow_oval": {
     "width": 112,
     "height": 46
+  },
+  "legs_greaves_front_walk_0": {
+    "width": 94,
+    "height": 96
+  },
+  "legs_greaves_front_walk_1": {
+    "width": 94,
+    "height": 96
+  },
+  "legs_greaves_front_walk_2": {
+    "width": 94,
+    "height": 96
+  },
+  "legs_greaves_front_walk_3": {
+    "width": 94,
+    "height": 96
+  },
+  "legs_greaves_front_walk_4": {
+    "width": 94,
+    "height": 96
+  },
+  "legs_greaves_front_walk_5": {
+    "width": 94,
+    "height": 96
+  },
+  "legs_greaves_back_walk_0": {
+    "width": 96,
+    "height": 96
+  },
+  "legs_greaves_back_walk_1": {
+    "width": 96,
+    "height": 96
+  },
+  "legs_greaves_back_walk_2": {
+    "width": 96,
+    "height": 96
+  },
+  "legs_greaves_back_walk_3": {
+    "width": 96,
+    "height": 96
+  },
+  "legs_greaves_back_walk_4": {
+    "width": 96,
+    "height": 96
+  },
+  "legs_greaves_back_walk_5": {
+    "width": 96,
+    "height": 96
+  },
+  "body_base_front_walk_0": {
+    "width": 114,
+    "height": 122
+  },
+  "body_base_front_walk_1": {
+    "width": 114,
+    "height": 122
+  },
+  "body_base_front_walk_2": {
+    "width": 114,
+    "height": 122
+  },
+  "body_base_front_walk_3": {
+    "width": 114,
+    "height": 122
+  },
+  "body_base_front_walk_4": {
+    "width": 114,
+    "height": 122
+  },
+  "body_base_front_walk_5": {
+    "width": 114,
+    "height": 122
   }
 }
