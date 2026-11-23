@@ -223,6 +223,15 @@ export interface SlotTrack {
   keyframes: SlotKeyframe[];
 }
 
+export interface AnimationEvent {
+  /** Timestamp in milliseconds within the clip's durationMs. */
+  timeMs: number;
+  /** Event identifier emitted at runtime (e.g. 'footstep', 'hit', 'cast_release'). */
+  name: string;
+  /** Optional string argument (e.g. 'left', 'right', 'melee_slash'). */
+  arg?: string;
+}
+
 export interface AnimationClip {
   id: string;
   label: string;
@@ -233,6 +242,8 @@ export interface AnimationClip {
   tracks: SlotTrack[];
   /** Optional per-direction track overrides (e.g. back-facing weapon arc or profile stride). */
   directionOverrides?: Record<DirectionId, SlotTrack[]>;
+  /** Optional gameplay/audio/VFX event markers fired at specific timestamps. */
+  events?: AnimationEvent[];
 }
 
 export type ZOrderTable = Record<DirectionId, SlotId[]>;

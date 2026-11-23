@@ -123,3 +123,75 @@ export type BakeCharacterInput = {
   config: CharacterConfig;
   images: ImageLookup;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mode B: Modular Runtime Kit Export Types (M4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ModularTextureEntry {
+  /** Logical imageId referenced by SpriteFrameRef.imageId or maskImageId. */
+  imageId: string;
+  /** Safe relative filename placed inside the exported `textures/` folder. */
+  filename: string;
+  width: number;
+  height: number;
+  png: Uint8Array;
+  isMask: boolean;
+}
+
+export interface ModularExportOptions {
+  /** Base folder / character kit name (e.g. "chibi_hero_modular"). */
+  kitName?: string;
+  /**
+   * Include all parts & presets from the pack (default: true) for full runtime dress-up.
+   * When false, trims the manifest to only parts currently equipped by `config`.
+   */
+  includeAllParts?: boolean;
+  /** Also pre-bake default 256×4 RGBA8 LUT PNGs per slot for reference / static preview (default: true). */
+  includePrebakedLuts?: boolean;
+}
+
+export interface ModularManifestJson {
+  format: 'paperdollkit-modular-v2';
+  schemaVersion: string;
+  kitName: string;
+  canvasSize: { width: number; height: number };
+  footAnchor: { x: number; y: number };
+  /** Maps logical imageId -> relative path inside the kit (e.g. "textures/albedo_atlas.png"). */
+  imageFiles: Record<string, string>;
+  directions: AssetPackManifest['directions'];
+  slots: AssetPackManifest['slots'];
+  zOrder: AssetPackManifest['zOrder'];
+  palettes: AssetPackManifest['palettes'];
+  skins: AssetPackManifest['skins'];
+  parts: AssetPackManifest['parts'];
+  animations: AssetPackManifest['animations'];
+  presets: AssetPackManifest['presets'];
+  defaultConfig: CharacterConfig;
+}
+
+export interface ModularExportData {
+  kitName: string;
+  manifest: ModularManifestJson;
+  textures: ModularTextureEntry[];
+  prebakedLuts: Record<string, Uint8Array>;
+  stats: {
+    partCount: number;
+    textureCount: number;
+    animationCount: number;
+    eventCount: number;
+    presetCount: number;
+  };
+}
+
+export interface Godot4ModularExportOptions {
+  /** Godot res:// base path where the user will drop the exported modular folder. */
+  resBasePath?: string;
+  /** Pixel-art nearest filter vs HD linear filter (default: 'linear'). */
+  textureFilter?: 'linear' | 'nearest';
+}
+
+export interface Cocos3ModularExportOptions {
+  /** Subfolder name inside the zip (default: kitName). */
+  folderName?: string;
+}

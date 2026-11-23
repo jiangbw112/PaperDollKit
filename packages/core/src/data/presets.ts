@@ -288,6 +288,10 @@ export const DEFAULT_ARPG_ANIMATIONS: Record<string, AnimationClip> = {
         ],
       },
     ],
+    events: [
+      { timeMs: 0, name: 'footstep', arg: 'left' },
+      { timeMs: 375, name: 'footstep', arg: 'right' },
+    ],
   },
   attack: {
     id: 'attack',
@@ -324,6 +328,10 @@ export const DEFAULT_ARPG_ANIMATIONS: Record<string, AnimationClip> = {
         ],
       },
     ],
+    events: [
+      { timeMs: 150, name: 'swing_start', arg: 'main_hand' },
+      { timeMs: 240, name: 'hit', arg: 'melee' },
+    ],
   },
   cast: {
     id: 'cast',
@@ -357,6 +365,10 @@ export const DEFAULT_ARPG_ANIMATIONS: Record<string, AnimationClip> = {
         ],
       },
     ],
+    events: [
+      { timeMs: 120, name: 'cast_charge', arg: 'arcane' },
+      { timeMs: 340, name: 'cast_release', arg: 'projectile' },
+    ],
   },
   hit: {
     id: 'hit',
@@ -374,6 +386,7 @@ export const DEFAULT_ARPG_ANIMATIONS: Record<string, AnimationClip> = {
         ],
       },
     ],
+    events: [{ timeMs: 30, name: 'hit_impact', arg: 'flash' }],
   },
 };
 

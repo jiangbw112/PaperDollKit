@@ -51,4 +51,10 @@ export const SHADER_UNIFORMS = {
   RECOLOR_MODE: 'u_recolor_mode', // 0=none, 1=mask_ramp, 2=tint, 3=indexed_lut
   TINT_COLOR: 'u_tint_color',
   OPACITY: 'u_opacity',
+  /** Runtime gameplay VFX: hit-flash blend amount in [0, 1] and color (default white). */
+  FLASH_AMOUNT: 'u_flash_amount',
+  FLASH_COLOR: 'u_flash_color',
+  /** Runtime gameplay VFX: outer sprite outline width in texels (0 = off) and color. */
+  OUTLINE_WIDTH: 'u_outline_width',
+  OUTLINE_COLOR: 'u_outline_color',
 } as const;

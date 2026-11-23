@@ -4,10 +4,14 @@ import { unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   bakeCharacterSequences,
+  buildModularExportData,
   encodePngRGBA,
   exportCocos3BakedBundle,
+  exportCocos3ModularBundle,
   exportDualEngineBakedBundle,
+  exportDualEngineModularBundle,
   exportGodot4BakedBundle,
+  exportGodot4ModularBundle,
   packSpritesToAtlas,
 } from '../src/index.js';
 
@@ -161,5 +165,78 @@ describe('@paperdollkit/exporters (M3 Baked Godot 4 & Cocos 3.x)', () => {
     const dualUnzipped = unzipSync(dualBundle.zip);
     expect(dualUnzipped['godot4/knight_hero/knight_hero_frames.tres']).toBeDefined();
     expect(dualUnzipped['cocos3/knight_hero/knight_hero_atlas.plist']).toBeDefined();
+  });
+
+  it('exports Mode B Modular Runtime Kits for Godot 4.x & Cocos Creator 3.x with Mask+Ramp LUT shaders, PartRules, and animation events', () => {
+    const { pack, images } = createDemoHDPackWithImages();
+    // Attach a PartRule to verify rules serialize cleanly into paperdoll_manifest.json
+    if (pack.parts.head_hat?.[0]) {
+      pack.parts.head_hat[0].rules = { hidesSlots: ['hair_style'] };
+    }
+    const hero = new PaperDollCharacter(pack, { preset: 'knight', direction: 'SE', action: 'attack' });
+
+    const modular = buildModularExportData(
+      { pack, config: hero.toJSON(), images },
+      { kitName: 'hero_kit', includeAllParts: true, includePrebakedLuts: true },
+    );
+
+    expect(modular.manifest.format).toBe('paperdollkit-modular-v2');
+    expect(modular.stats.partCount).toBeGreaterThan(10);
+    expect(modular.stats.textureCount).toBeGreaterThan(0);
+    expect(modular.stats.eventCount).toBeGreaterThanOrEqual(5);
+    expect(modular.manifest.animations.attack?.events?.some((e) => e.name === 'hit')).toBe(true);
+    expect(modular.manifest.parts.head_hat?.[0]?.rules?.hidesSlots).toEqual(['hair_style']);
+    expect(Object.keys(modular.prebakedLuts).length).toBeGreaterThan(0);
+
+    // 1. Godot 4.x Mode B Bundle
+    const godotMod = exportGodot4ModularBundle(modular, {
+      resBasePath: 'res://characters/hero_kit',
+    });
+    expect(godotMod.zipFilename).toBe('hero_kit_godot4_modular.zip');
+    const godotFiles = unzipSync(godotMod.zip);
+    expect(godotFiles['hero_kit/paperdoll_manifest.json']).toBeDefined();
+    expect(godotFiles['hero_kit/shaders/paperdoll_mask_ramp.gdshader']).toBeDefined();
+    expect(godotFiles['hero_kit/scripts/paperdoll_modular.gd']).toBeDefined();
+    expect(godotFiles['hero_kit/hero_kit_modular.tscn']).toBeDefined();
+
+    const gdShader = String(godotMod.files['hero_kit/shaders/paperdoll_mask_ramp.gdshader']);
+    expect(gdShader).toContain('shader_type canvas_item;');
+    expect(gdShader).toContain('u_lut_tex');
+    expect(gdShader).toContain('u_flash_amount');
+    expect(gdShader).toContain('u_outline_width');
+
+    const gdScript = String(godotMod.files['hero_kit/scripts/paperdoll_modular.gd']);
+    expect(gdScript).toContain('class_name PaperDollModular');
+    expect(gdScript).toContain('signal animation_event');
+    expect(gdScript).toContain('_resolve_part_rules');
+    expect(gdScript).toContain('trigger_hit_flash');
+    expect(gdScript).toContain('set_outline');
+
+    // 2. Cocos Creator 3.x Mode B Bundle
+    const cocosMod = exportCocos3ModularBundle(modular);
+    expect(cocosMod.zipFilename).toBe('hero_kit_cocos3_modular.zip');
+    const cocosFiles = unzipSync(cocosMod.zip);
+    expect(cocosFiles['hero_kit/paperdoll_manifest.json']).toBeDefined();
+    expect(cocosFiles['hero_kit/shaders/paperdoll-mask-ramp.effect']).toBeDefined();
+    expect(cocosFiles['hero_kit/scripts/PaperDollModular.ts']).toBeDefined();
+
+    const ccEffect = String(cocosMod.files['hero_kit/shaders/paperdoll-mask-ramp.effect']);
+    expect(ccEffect).toContain('CCEffect');
+    expect(ccEffect).toContain('lutTexture');
+    expect(ccEffect).toContain('flashColor');
+    expect(ccEffect).toContain('outlineColor');
+
+    const ccScript = String(cocosMod.files['hero_kit/scripts/PaperDollModular.ts']);
+    expect(ccScript).toContain("@ccclass('PaperDollModular')");
+    expect(ccScript).toContain('resolvePartRules');
+    expect(ccScript).toContain('triggerHitFlash');
+    expect(ccScript).toContain('paperdoll-event');
+
+    // 3. Dual-Engine Mode B ZIP Bundle
+    const dualMod = exportDualEngineModularBundle(modular);
+    expect(dualMod.zipFilename).toBe('hero_kit_godot4_cocos3_modular.zip');
+    const dualFiles = unzipSync(dualMod.zip);
+    expect(dualFiles['godot4/hero_kit/scripts/paperdoll_modular.gd']).toBeDefined();
+    expect(dualFiles['cocos3/hero_kit/scripts/PaperDollModular.ts']).toBeDefined();
   });
 });
