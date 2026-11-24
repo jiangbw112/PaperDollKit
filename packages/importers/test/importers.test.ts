@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAssetPackFromEntries,
   createDemoHDPackWithImages,
+  generateAutoMaskFromImage,
   importPsdBuffer,
   parseLayerPath,
   trimTransparentImage,
@@ -193,5 +194,52 @@ describe('@paperdollkit/importers', () => {
     }
     expect(hasSleeveR).toBe(true);
     expect(hasHandB).toBe(true);
+  });
+
+  it('auto-generates an opaque (A=255) semantic mask separating lineart, skin (B), primary (R), and secondary (G)', () => {
+    const w = 40;
+    const h = 40;
+    const data = new Uint8ClampedArray(w * h * 4);
+    const fillRect = (x0: number, y0: number, x1: number, y1: number, r: number, g: number, b: number) => {
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const i = (y * w + x) * 4;
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+          data[i + 3] = 255;
+        }
+      }
+    };
+    // Dark outline
+    fillRect(0, 0, 40, 4, 20, 22, 28);
+    // Large cobalt blue sleeve (should become Primary R)
+    fillRect(0, 4, 40, 24, 48, 108, 215);
+    // Smaller emerald cuff trim (should become Secondary G)
+    fillRect(0, 24, 40, 32, 36, 178, 110);
+    // Warm peach skin hand (should become Skin B on front_arm)
+    fillRect(0, 32, 40, 40, 240, 194, 156);
+
+    const res = generateAutoMaskFromImage(
+      { id: 'custom_arm.png', width: w, height: h, data },
+      { slotId: 'front_arm' },
+    );
+
+    // Every pixel must have opaque alpha = 255
+    for (let i = 3; i < res.mask.data.length; i += 4) {
+      expect(res.mask.data[i]).toBe(255);
+    }
+
+    const pxAt = (x: number, y: number) => {
+      const i = (y * w + x) * 4;
+      return [res.mask.data[i], res.mask.data[i + 1], res.mask.data[i + 2], res.mask.data[i + 3]];
+    };
+    expect(pxAt(10, 2)).toEqual([0, 0, 0, 255]);    // Lineart preserved
+    expect(pxAt(10, 14)).toEqual([255, 0, 0, 255]); // Primary sleeve -> R
+    expect(pxAt(10, 28)).toEqual([0, 255, 0, 255]); // Secondary trim -> G
+    expect(pxAt(10, 36)).toEqual([0, 0, 255, 255]); // Skin hand -> B
+    expect(res.stats.primaryPixels).toBeGreaterThan(res.stats.secondaryPixels);
+    expect(res.stats.skinPixels).toBe(40 * 8);
+    expect(res.stats.preservedPixels).toBe(40 * 4);
   });
 });

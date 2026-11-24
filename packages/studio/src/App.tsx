@@ -12,7 +12,11 @@ import {
   type SlotId,
   type Vec2,
 } from '@paperdollkit/core';
-import type { ImportReport, ImportedImage } from '@paperdollkit/importers';
+import {
+  generateAutoMaskFromImage,
+  type ImportReport,
+  type ImportedImage,
+} from '@paperdollkit/importers';
 import {
   Bookmark,
   Bug,
@@ -38,6 +42,7 @@ import {
   Undo2,
   Upload,
   Users,
+  Wand2,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExportModal } from './components/ExportModal.tsx';
@@ -509,6 +514,109 @@ export default function App() {
     },
     [config, selectedSlotId, pack, images, pushHistory, showToast],
   );
+
+  const handleAutoGenerateMask = useCallback(() => {
+    const partId = config.slots[selectedSlotId];
+    if (!partId || partId === 'none') {
+      showToast('当前槽位未装备部件，请先选择或导入一个 PNG 部件');
+      return;
+    }
+    const slotParts = pack.parts[selectedSlotId] ?? [];
+    const part = slotParts.find((p) => p.id === partId);
+    if (!part) return;
+
+    const nextImages = new Map(images);
+    const cache = new Map<string, { maskId: string; w: number; h: number }>();
+    let aggTotal = 0;
+    let aggPrimary = 0;
+    let aggSecondary = 0;
+    let aggSkin = 0;
+    let generatedCount = 0;
+
+    const extractSubImage = (img: ImportedImage, r: { x: number; y: number; width: number; height: number }): ImportedImage => {
+      if (r.x === 0 && r.y === 0 && r.width === img.width && r.height === img.height) {
+        return img;
+      }
+      const out = new Uint8ClampedArray(r.width * r.height * 4);
+      for (let y = 0; y < r.height; y++) {
+        const srcRow = ((r.y + y) * img.width + r.x) * 4;
+        out.set(img.data.subarray(srcRow, srcRow + r.width * 4), y * r.width * 4);
+      }
+      return { id: img.id, width: r.width, height: r.height, data: out };
+    };
+
+    const processFrame = (frame: typeof part.directions[string]['frames'][number]) => {
+      const albedo = nextImages.get(frame.imageId);
+      if (!albedo) return frame;
+      const r = frame.sourceRect;
+      const key = `${frame.imageId}:${r.x},${r.y},${r.width},${r.height}`;
+      let hit = cache.get(key);
+      if (!hit) {
+        const sub = extractSubImage(albedo, r);
+        const maskId = `automask/${selectedSlotId}/${partId}_${generatedCount++}.png`;
+        const res = generateAutoMaskFromImage(sub, {
+          slotId: selectedSlotId,
+          maskImageId: maskId,
+        });
+        nextImages.set(maskId, res.mask);
+        aggTotal += res.stats.totalOpaquePixels;
+        aggPrimary += res.stats.primaryPixels;
+        aggSecondary += res.stats.secondaryPixels;
+        aggSkin += res.stats.skinPixels;
+        hit = { maskId, w: res.mask.width, h: res.mask.height };
+        cache.set(key, hit);
+      }
+      return {
+        ...frame,
+        maskImageId: hit.maskId,
+        maskRect: { x: 0, y: 0, width: hit.w, height: hit.h },
+      };
+    };
+
+    const nextDirections: typeof part.directions = {};
+    for (const [dirId, visual] of Object.entries(part.directions)) {
+      const nextActionFrames = visual.actionFrames
+        ? Object.fromEntries(
+            Object.entries(visual.actionFrames).map(([actId, seq]) => [
+              actId,
+              seq.map(processFrame),
+            ]),
+          )
+        : undefined;
+      nextDirections[dirId] = {
+        ...visual,
+        frames: visual.frames.map(processFrame),
+        ...(nextActionFrames ? { actionFrames: nextActionFrames } : {}),
+      };
+    }
+
+    if (generatedCount === 0) {
+      showToast('未找到可分析的底图贴图');
+      return;
+    }
+
+    const nextPack: AssetPackManifest = {
+      ...pack,
+      parts: {
+        ...pack.parts,
+        [selectedSlotId]: slotParts.map((p) =>
+          p.id === partId ? { ...p, recolorMode: 'mask_ramp', directions: nextDirections } : p,
+        ),
+      },
+    };
+
+    pushHistory();
+    setImages(nextImages);
+    setImagesVersion((v) => v + 1);
+    setPack(nextPack);
+    setLastAudit(auditAssetPack(nextPack, nextImages));
+
+    const denom = Math.max(1, aggTotal);
+    const pct = (n: number) => `${Math.round((n / denom) * 100)}%`;
+    showToast(
+      `已为 ${part.name} 自动生成 Mask（主色 ${pct(aggPrimary)} / 辅色 ${pct(aggSecondary)} / 肤色 ${pct(aggSkin)}，可点「Mask 视图」查看）`,
+    );
+  }, [config.slots, selectedSlotId, pack, images, pushHistory, showToast]);
 
   const handleDragSlotOffset = useCallback(
     (slotId: SlotId, dx: number, dy: number) => {
@@ -1408,6 +1516,15 @@ export default function App() {
                 绑定遮罩 Mask
               </button>
             </div>
+
+            <button
+              onClick={handleAutoGenerateMask}
+              className="flex w-full items-center justify-center gap-1.5 rounded border border-fuchsia-500/40 bg-fuchsia-600/15 px-2.5 py-1.5 text-[11px] font-semibold text-fuchsia-200 hover:bg-fuchsia-600/30 transition"
+              title="从普通彩色 PNG 自动提取线稿、主色(R)、辅色(G)与肤色(B)，生成合规 A=255 遮罩"
+            >
+              <Wand2 className="h-3.5 w-3.5 text-fuchsia-300" />
+              普通 PNG 一键自动生成 Mask
+            </button>
 
             <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px]">
               <label className="flex items-center justify-between gap-2">
