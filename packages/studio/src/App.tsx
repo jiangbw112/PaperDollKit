@@ -24,6 +24,7 @@ import {
   EyeOff,
   FileImage,
   FileJson,
+  Flag,
   FolderUp,
   Grid2x2,
   Layers,
@@ -31,6 +32,7 @@ import {
   Palette,
   Pause,
   Play,
+  Plus,
   Redo2,
   RotateCcw,
   Save,
@@ -62,6 +64,7 @@ import {
   type SavedCharacterEntry,
   type StudioProjectFile,
 } from './utils/character-library.ts';
+import { downloadEquipmentReferenceTemplate } from './utils/reference-template.ts';
 import { loadStickerHDPack } from './utils/sticker-pack-loader.ts';
 
 const COMPASS_GRID: (DirectionId | null)[][] = [
@@ -193,6 +196,63 @@ export default function App() {
       return prev.slice(1);
     });
   }, [captureSnapshot]);
+
+  // Visual Animation Event Editor state
+  const [eventsEditorOpen, setEventsEditorOpen] = useState(false);
+  const [newEventName, setNewEventName] = useState('hit_frame');
+  const [newEventArg, setNewEventArg] = useState('');
+
+  const handleAddAnimationEvent = useCallback(() => {
+    const trimmed = newEventName.trim();
+    if (!trimmed) return;
+    pushHistory();
+    setPack((prev) => {
+      const clip = prev.animations[config.action];
+      if (!clip) return prev;
+      const clampedMs = Math.max(0, Math.min(clip.durationMs, Math.round(timeMs)));
+      const nextEvents = [
+        ...(clip.events ?? []),
+        {
+          timeMs: clampedMs,
+          name: trimmed,
+          ...(newEventArg.trim() ? { arg: newEventArg.trim() } : {}),
+        },
+      ].sort((a, b) => a.timeMs - b.timeMs);
+      return {
+        ...prev,
+        animations: {
+          ...prev.animations,
+          [clip.id]: {
+            ...clip,
+            events: nextEvents,
+          },
+        },
+      };
+    });
+    setNewEventArg('');
+  }, [config.action, newEventName, newEventArg, pushHistory, timeMs]);
+
+  const handleDeleteAnimationEvent = useCallback(
+    (index: number) => {
+      pushHistory();
+      setPack((prev) => {
+        const clip = prev.animations[config.action];
+        if (!clip || !clip.events) return prev;
+        const nextEvents = clip.events.filter((_, i) => i !== index);
+        return {
+          ...prev,
+          animations: {
+            ...prev.animations,
+            [clip.id]: {
+              ...clip,
+              events: nextEvents,
+            },
+          },
+        };
+      });
+    },
+    [config.action, pushHistory],
+  );
 
   // Global keyboard shortcuts for Undo / Redo in editor mode
   useEffect(() => {
@@ -671,7 +731,7 @@ export default function App() {
         ref={globalFileInputRef}
         type="file"
         multiple
-        accept=".psd,.png,.webp,.jpg,.jpeg"
+        accept=".psd,.ase,.aseprite,.png,.webp,.jpg,.jpeg"
         className="hidden"
         onChange={(e) => {
           const list = Array.from(e.target.files ?? []);
@@ -914,7 +974,7 @@ export default function App() {
             className="flex items-center gap-1.5 rounded border border-sky-500/40 bg-sky-600/20 px-2.5 py-1 text-xs font-semibold text-sky-200 hover:bg-sky-600/35 transition"
           >
             <FolderUp className="h-3.5 w-3.5" />
-            导入 PSD/PNG
+            导入 PSD/ASE/PNG
           </button>
 
           <button
@@ -1289,23 +1349,147 @@ export default function App() {
               </div>
             </div>
 
-            {/* Timeline scrubber */}
-            <div className="flex flex-1 items-center gap-2 min-w-[180px] max-w-md">
-              <input
-                type="range"
-                min={0}
-                max={activeClip.durationMs}
-                step={5}
-                value={Math.round(timeMs)}
-                onChange={(e) => {
-                  setIsPlaying(false);
-                  setTimeMs(Number(e.target.value));
-                }}
-                className="w-full accent-sky-500"
-              />
+            {/* Timeline scrubber + Visual Animation Event Markers */}
+            <div className="relative flex flex-1 items-center gap-2 min-w-[200px] max-w-lg">
+              <div className="relative flex-1 pt-2 pb-0.5">
+                {/* Event markers track above scrubber */}
+                <div className="pointer-events-none absolute inset-x-1 top-0 h-2.5">
+                  {(activeClip.events ?? []).map((ev, idx) => {
+                    const pct =
+                      activeClip.durationMs > 0
+                        ? Math.max(0, Math.min(100, (ev.timeMs / activeClip.durationMs) * 100))
+                        : 0;
+                    const isTriggered = Math.abs(timeMs - ev.timeMs) <= 45;
+                    return (
+                      <button
+                        key={`${ev.name}-${ev.timeMs}-${idx}`}
+                        type="button"
+                        onClick={() => {
+                          setIsPlaying(false);
+                          setTimeMs(ev.timeMs);
+                        }}
+                        style={{ left: `${pct}%` }}
+                        title={`${ev.name}${ev.arg ? `(${ev.arg})` : ''} @ ${ev.timeMs}ms`}
+                        className={`pointer-events-auto absolute top-0 -translate-x-1/2 h-2.5 w-2.5 rotate-45 border transition-transform ${
+                          isTriggered
+                            ? 'scale-125 border-amber-200 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)]'
+                            : 'border-amber-400/70 bg-amber-500/70 hover:scale-125'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={activeClip.durationMs}
+                  step={5}
+                  value={Math.round(timeMs)}
+                  onChange={(e) => {
+                    setIsPlaying(false);
+                    setTimeMs(Number(e.target.value));
+                  }}
+                  className="w-full accent-sky-500"
+                />
+              </div>
+
               <span className="w-20 text-right font-mono text-[11px] text-slate-400">
                 {Math.round(timeMs)}/{activeClip.durationMs}ms
               </span>
+
+              {/* Visual Animation Events Popover Trigger */}
+              <div className="relative">
+                <button
+                  onClick={() => setEventsEditorOpen((v) => !v)}
+                  className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium transition ${
+                    eventsEditorOpen
+                      ? 'border-amber-500/60 bg-amber-500/20 text-amber-200'
+                      : 'border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="可视化编辑动画事件（hit_frame / footstep / cast_vfx 等）"
+                >
+                  <Flag className="h-3 w-3 text-amber-400" />
+                  <span>事件 ({activeClip.events?.length ?? 0})</span>
+                </button>
+
+                {eventsEditorOpen && (
+                  <div className="absolute right-0 bottom-9 z-40 w-72 rounded-xl border border-slate-700/90 bg-slate-900/95 p-3 shadow-2xl backdrop-blur space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-amber-200">
+                        {activeClip.label} · 动画事件轨
+                      </span>
+                      <span className="font-mono text-[10px] text-slate-400">
+                        当前 {Math.round(timeMs)}ms
+                      </span>
+                    </div>
+
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={newEventName}
+                        onChange={(e) => setNewEventName(e.target.value)}
+                        placeholder="事件名 (如 hit_frame)"
+                        className="w-28 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 focus:border-amber-500 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={newEventArg}
+                        onChange={(e) => setNewEventArg(e.target.value)}
+                        placeholder="参数 (可选)"
+                        className="flex-1 min-w-0 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] text-slate-100 focus:border-amber-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={handleAddAnimationEvent}
+                        className="flex items-center gap-0.5 rounded bg-amber-500 px-2 py-1 text-[11px] font-semibold text-slate-950 hover:bg-amber-400 transition"
+                        title="在当前时间轴位置插入事件"
+                      >
+                        <Plus className="h-3 w-3" />
+                        添加
+                      </button>
+                    </div>
+
+                    <div className="max-h-36 overflow-y-auto space-y-1">
+                      {(activeClip.events ?? []).length === 0 ? (
+                        <div className="rounded border border-slate-800 bg-slate-950/60 px-2 py-2 text-center text-[11px] text-slate-500">
+                          暂无事件，拖动时间轴后点击「添加」
+                        </div>
+                      ) : (
+                        (activeClip.events ?? []).map((ev, idx) => (
+                          <div
+                            key={`${ev.name}-${ev.timeMs}-${idx}`}
+                            className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/80 px-2 py-1 text-[11px]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsPlaying(false);
+                                setTimeMs(ev.timeMs);
+                              }}
+                              className="flex items-center gap-1.5 text-left hover:text-amber-300"
+                            >
+                              <span className="font-mono text-[10px] text-amber-400">
+                                {ev.timeMs}ms
+                              </span>
+                              <span className="font-medium text-slate-200">{ev.name}</span>
+                              {ev.arg && (
+                                <span className="text-[10px] text-slate-400">({ev.arg})</span>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAnimationEvent(idx)}
+                              className="text-slate-500 hover:text-rose-400 transition"
+                              title="删除事件"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Speed & Layer Explode */}
@@ -1486,6 +1670,18 @@ export default function App() {
             >
               <Wand2 className="h-3.5 w-3.5 text-fuchsia-300" />
               普通 PNG 一键自动生成 Mask
+            </button>
+
+            <button
+              onClick={() => {
+                downloadEquipmentReferenceTemplate(pack.canvasSize, config.direction);
+                showToast(`已导出 ${pack.canvasSize.width}×${pack.canvasSize.height} (${config.direction}) 骨架参考底图 PNG`);
+              }}
+              className="flex w-full items-center justify-center gap-1.5 rounded border border-cyan-500/35 bg-cyan-600/15 px-2.5 py-1.5 text-[11px] font-medium text-cyan-200 hover:bg-cyan-600/30 transition"
+              title="导出带素体剪影、17槽位十字锚点、脚底基准线与 hand_main/head_top 挂点标记的 256×256 PNG，便于 AI 生图或手绘对齐"
+            >
+              <FileImage className="h-3.5 w-3.5 text-cyan-300" />
+              导出骨架参考底图 PNG (AI/手绘)
             </button>
 
             <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px]">

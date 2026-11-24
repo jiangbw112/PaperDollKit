@@ -1,12 +1,17 @@
 import { validateAssetPack } from '@paperdollkit/core';
 import { writePsdBuffer } from 'ag-psd';
+import { zlibSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   buildAssetPackFromEntries,
   createDemoHDPackWithImages,
   generateAutoMaskFromImage,
+  generateAutoNormalMap,
+  importAsepriteBuffer,
   importPsdBuffer,
+  parseAsepriteBuffer,
   parseLayerPath,
+  sliceSpriteStrip,
   trimTransparentImage,
 } from '../src/index.js';
 
@@ -241,5 +246,121 @@ describe('@paperdollkit/importers', () => {
     expect(res.stats.primaryPixels).toBeGreaterThan(res.stats.secondaryPixels);
     expect(res.stats.skinPixels).toBe(40 * 8);
     expect(res.stats.preservedPixels).toBe(40 * 4);
+  });
+
+  it('parses and imports a binary .aseprite file with zlib-compressed RGBA cel and layer path', () => {
+    const layerName = new TextEncoder().encode('torso_top/ase_tunic_SE');
+    const layerChunkSize = 6 + 16 + 2 + layerName.length;
+    const layerChunk = new Uint8Array(layerChunkSize);
+    const lv = new DataView(layerChunk.buffer);
+    lv.setUint32(0, layerChunkSize, true);
+    lv.setUint16(4, 0x2004, true); // Layer chunk
+    lv.setUint16(6, 1, true); // flags: visible
+    lv.setUint16(8, 0, true); // type: normal
+    lv.setUint16(10, 0, true); // child level
+    lv.setUint8(18, 255); // opacity
+    lv.setUint16(22, layerName.length, true);
+    layerChunk.set(layerName, 24);
+
+    // Compressed cel (8×8 solid RGBA at offset 4,4)
+    const rawPixels = makeSolidRGBA(8, 8, 90, 140, 220, 255);
+    const compressed = zlibSync(new Uint8Array(rawPixels.buffer));
+    const celChunkSize = 6 + 16 + 4 + compressed.length;
+    const celChunk = new Uint8Array(celChunkSize);
+    const cv = new DataView(celChunk.buffer);
+    cv.setUint32(0, celChunkSize, true);
+    cv.setUint16(4, 0x2005, true); // Cel chunk
+    cv.setUint16(6, 0, true); // layer index 0
+    cv.setInt16(8, 4, true); // x = 4
+    cv.setInt16(10, 4, true); // y = 4
+    cv.setUint8(12, 255); // opacity
+    cv.setUint16(13, 2, true); // cel type 2 = compressed
+    cv.setUint16(22, 8, true); // width
+    cv.setUint16(24, 8, true); // height
+    celChunk.set(compressed, 26);
+
+    const frameBytes = 16 + layerChunk.length + celChunk.length;
+    const totalBytes = 128 + frameBytes;
+    const buf = new Uint8Array(totalBytes);
+    const hv = new DataView(buf.buffer);
+    hv.setUint32(0, totalBytes, true);
+    hv.setUint16(4, 0xa5e0, true); // ASE magic
+    hv.setUint16(6, 1, true); // 1 frame
+    hv.setUint16(8, 16, true); // width 16
+    hv.setUint16(10, 16, true); // height 16
+    hv.setUint16(12, 32, true); // 32bpp RGBA
+
+    // Frame header at 128
+    hv.setUint32(128, frameBytes, true);
+    hv.setUint16(132, 0xf1fa, true); // frame magic
+    hv.setUint16(134, 2, true); // 2 chunks
+    hv.setUint16(136, 120, true); // duration 120ms
+    buf.set(layerChunk, 144);
+    buf.set(celChunk, 144 + layerChunk.length);
+
+    const parsed = parseAsepriteBuffer(buf);
+    expect(parsed.width).toBe(16);
+    expect(parsed.height).toBe(16);
+    expect(parsed.layers).toHaveLength(1);
+    expect(parsed.layers[0]!.name).toBe('torso_top/ase_tunic_SE');
+
+    const imported = importAsepriteBuffer(buf, { duplicateSingleDirection: true });
+    expect(validateAssetPack(imported.pack).ok).toBe(true);
+    expect(imported.report.importedParts).toBe(1);
+    const part = imported.pack.parts.torso_top?.find((p) => p.id === 'ase_tunic');
+    expect(part).toBeDefined();
+    expect(part!.directions.SE!.frames[0]!.trimOffset).toEqual({ x: 4, y: 4 });
+  });
+
+  it('slices a horizontal spritesheet strip into individual non-empty frame entries', () => {
+    const strip = new Uint8ClampedArray(96 * 32 * 4);
+    // Paint frame 0 (0..31) and frame 2 (64..95); leave frame 1 (32..63) empty
+    for (let y = 4; y < 28; y++) {
+      for (let x = 4; x < 28; x++) {
+        const i0 = (y * 96 + x) * 4;
+        strip[i0] = 200;
+        strip[i0 + 3] = 255;
+        const i2 = (y * 96 + (64 + x)) * 4;
+        strip[i2 + 1] = 200;
+        strip[i2 + 3] = 255;
+      }
+    }
+    const entries = sliceSpriteStrip(
+      { id: 'hero_walk.png', width: 96, height: 32, data: strip },
+      { frameWidth: 32, frameHeight: 32, pathPrefix: 'torso_top/strip_hero_SE_walk' },
+    );
+    expect(entries).toHaveLength(2);
+    expect(entries[0]!.path).toBe('torso_top/strip_hero_SE_walk_0.png');
+    expect(entries[1]!.path).toBe('torso_top/strip_hero_SE_walk_1.png');
+    expect(entries[0]!.width).toBe(32);
+    expect(entries[0]!.height).toBe(32);
+  });
+
+  it('generates a tangent-space 2D normal map with flat (128,128,255) background and Sobel edge slopes', () => {
+    const w = 16;
+    const h = 16;
+    const data = new Uint8ClampedArray(w * h * 4);
+    // Bright horizontal ramp inside (4..11, 4..11)
+    for (let y = 4; y < 12; y++) {
+      for (let x = 4; x < 12; x++) {
+        const i = (y * w + x) * 4;
+        const v = Math.round(((x - 4) / 7) * 255);
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+        data[i + 3] = 255;
+      }
+    }
+    const normal = generateAutoNormalMap({ id: 'plate.png', width: w, height: h, data });
+    expect(normal.id).toBe('plate_normal.png');
+    expect(normal.width).toBe(w);
+    expect(normal.height).toBe(h);
+    // Transparent corner -> flat neutral normal (128, 128, 255, 255)
+    expect([normal.data[0], normal.data[1], normal.data[2], normal.data[3]]).toEqual([128, 128, 255, 255]);
+    // Rising ramp left->right => negative nx => R < 128, positive nz => B > 128
+    const mid = (8 * w + 8) * 4;
+    expect(normal.data[mid]!).toBeLessThan(120);
+    expect(normal.data[mid + 2]!).toBeGreaterThan(128);
+    expect(normal.data[mid + 3]!).toBe(255);
   });
 });

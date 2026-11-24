@@ -29,10 +29,12 @@ CCEffect %{
         alphaThreshold: { value: 0.5 }
         maskTexture:    { value: white }
         lutTexture:     { value: white }
+        normalTexture:  { value: white }
         recolorParams:  { value: [1.0, 0.0, 0.0, 0.0], editor: { tooltip: "x=recolorMode(0/1/2), y=hasMask, z=flashAmount, w=outlineWidth" } }
         texelSize:      { value: [0.0009765625, 0.0009765625, 0.0, 0.0] }
         flashColor:     { value: [1.0, 1.0, 1.0, 1.0], editor: { type: color } }
         outlineColor:   { value: [0.08, 0.08, 0.12, 1.0], editor: { type: color } }
+        lightDir:       { value: [0.35, 0.55, 0.75, 0.0], editor: { tooltip: "xyz=directional light vector, w=normalStrength (0=disabled)" } }
 }%
 
 CCProgram sprite-vs %{
@@ -74,12 +76,14 @@ CCProgram sprite-fs %{
 
   uniform sampler2D maskTexture;
   uniform sampler2D lutTexture;
+  uniform sampler2D normalTexture;
 
   uniform PaperDollParams {
     vec4 recolorParams; // x=mode(0=none,1=mask_ramp,2=tint), y=hasMask(0/1), z=flashAmount, w=outlineWidth
     vec4 texelSize;     // xy = 1.0 / atlasSize
     vec4 flashColor;
     vec4 outlineColor;
+    vec4 lightDir;      // xyz = light direction, w = normal lighting strength (0..1)
   };
 
   vec4 frag () {
@@ -140,6 +144,14 @@ CCProgram sprite-fs %{
           + cSkin * wSkin;
     } else if (recolorMode >= 1.5) {
       rgb = albedo.rgb * color.rgb;
+    }
+
+    // Optional 2D normal-map directional lighting
+    if (lightDir.w > 0.01) {
+      vec3 n = normalize(texture(normalTexture, uv0).rgb * 2.0 - 1.0);
+      vec3 l = normalize(lightDir.xyz);
+      float ndl = clamp(dot(n, l), 0.35, 1.15);
+      rgb *= mix(1.0, ndl, clamp(lightDir.w, 0.0, 1.0));
     }
 
     rgb = mix(rgb, flashColor.rgb, flashAmount);

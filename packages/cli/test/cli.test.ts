@@ -84,4 +84,42 @@ describe('@paperdollkit/cli (M5 Headless Pipeline)', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('handles MCP JSON-RPC 2.0 initialize, tools/list, list_catalog, and natural-language design_character', async () => {
+    const { handleMcpRequest } = await import('../src/mcp.js');
+
+    const initResp = handleMcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' });
+    expect(initResp?.result).toMatchObject({
+      serverInfo: { name: 'paperdollkit-mcp' },
+    });
+
+    const listResp = handleMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    const tools = (listResp?.result as { tools: Array<{ name: string }> }).tools;
+    expect(tools.map((t) => t.name)).toEqual([
+      'list_catalog',
+      'generate_character',
+      'design_character',
+      'export_character',
+      'generate_batch',
+    ]);
+
+    const designResp = handleMcpRequest({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: {
+        name: 'design_character',
+        arguments: { prompt: '穿红色披风的秘法法师，手持法杖' },
+      },
+    });
+    const text = (designResp?.result as { content: Array<{ text: string }> }).content[0]!.text;
+    const designed = JSON.parse(text) as {
+      archetype: string;
+      matchedTraits: string[];
+      config: { slots: Record<string, string>; palettes: Record<string, string> };
+    };
+    expect(designed.archetype).toBe('mage');
+    expect(designed.matchedTraits).toContain('archetype:mage');
+    expect(designed.config.palettes.torso_top).toBe('crimson');
+  });
 });

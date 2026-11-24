@@ -221,6 +221,9 @@ importers:
       ag-psd:
         specifier: ^28.3.0
         version: 28.5.1
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.3
 
   packages/renderer-webgl2:
     dependencies:

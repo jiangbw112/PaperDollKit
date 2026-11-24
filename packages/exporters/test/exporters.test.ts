@@ -206,6 +206,8 @@ describe('@paperdollkit/exporters (M3 Baked Godot 4 & Cocos 3.x)', () => {
     expect(gdShader).toContain('u_lut_tex');
     expect(gdShader).toContain('u_flash_amount');
     expect(gdShader).toContain('u_outline_width');
+    expect(gdShader).toContain('u_normal_tex');
+    expect(gdShader).toContain('NORMAL_MAP');
 
     const gdScript = String(godotMod.files['hero_kit/scripts/paperdoll_modular.gd']);
     expect(gdScript).toContain('class_name PaperDollModular');
@@ -227,6 +229,8 @@ describe('@paperdollkit/exporters (M3 Baked Godot 4 & Cocos 3.x)', () => {
     expect(ccEffect).toContain('lutTexture');
     expect(ccEffect).toContain('flashColor');
     expect(ccEffect).toContain('outlineColor');
+    expect(ccEffect).toContain('normalTexture');
+    expect(ccEffect).toContain('lightDir');
 
     const ccScript = String(cocosMod.files['hero_kit/scripts/PaperDollModular.ts']);
     expect(ccScript).toContain("@ccclass('PaperDollModular')");

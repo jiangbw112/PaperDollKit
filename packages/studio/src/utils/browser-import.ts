@@ -1,6 +1,7 @@
 import type { AssetPackManifest, DirectionId, SlotId } from '@paperdollkit/core';
 import {
   buildAssetPackFromEntries,
+  importAsepriteBuffer,
   importPsdBuffer,
   type ImportResult,
   type ImportedImage,
@@ -38,8 +39,8 @@ export interface ExplicitSlotImportTarget {
 }
 
 /**
- * Imports dropped/selected `.psd` or `.png`/`.webp` files and merges them into
- * the active AssetPackManifest and image store.
+ * Imports dropped/selected `.psd`, `.ase`/`.aseprite`, or `.png`/`.webp` files
+ * and merges them into the active AssetPackManifest and image store.
  */
 export async function importBrowserFiles(
   files: readonly File[],
@@ -51,6 +52,7 @@ export async function importBrowserFiles(
   let currentImages = new Map(baseImages);
 
   const psdFiles = files.filter((f) => /\.psd$/i.test(f.name));
+  const aseFiles = files.filter((f) => /\.(ase|aseprite)$/i.test(f.name));
   const imageFiles = files.filter((f) => /\.(png|webp|jpg|jpeg)$/i.test(f.name));
 
   let aggregateReport: ImportResult['report'] = {
@@ -63,14 +65,7 @@ export async function importBrowserFiles(
     canvasSize: currentPack.canvasSize,
   };
 
-  for (const psdFile of psdFiles) {
-    const buf = await psdFile.arrayBuffer();
-    const res = importPsdBuffer(buf, {
-      basePack: currentPack,
-      baseImages: currentImages,
-      defaultDirection: explicitTarget?.directionId ?? 'SE',
-      duplicateSingleDirection: true,
-    });
+  const mergeReport = (res: ImportResult) => {
     currentPack = res.pack;
     currentImages = res.images;
     aggregateReport = {
@@ -82,6 +77,28 @@ export async function importBrowserFiles(
       warnings: [...aggregateReport.warnings, ...res.report.warnings],
       canvasSize: res.report.canvasSize,
     };
+  };
+
+  for (const psdFile of psdFiles) {
+    const buf = await psdFile.arrayBuffer();
+    const res = importPsdBuffer(buf, {
+      basePack: currentPack,
+      baseImages: currentImages,
+      defaultDirection: explicitTarget?.directionId ?? 'SE',
+      duplicateSingleDirection: true,
+    });
+    mergeReport(res);
+  }
+
+  for (const aseFile of aseFiles) {
+    const buf = await aseFile.arrayBuffer();
+    const res = importAsepriteBuffer(buf, {
+      basePack: currentPack,
+      baseImages: currentImages,
+      defaultDirection: explicitTarget?.directionId ?? 'SE',
+      duplicateSingleDirection: true,
+    });
+    mergeReport(res);
   }
 
   if (imageFiles.length > 0) {

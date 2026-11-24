@@ -29,9 +29,11 @@ function collectFrameImageIds(
   frame: SpriteFrameRef,
   albedoIds: Set<string>,
   maskIds: Set<string>,
+  normalIds: Set<string>,
 ): void {
   if (frame.imageId) albedoIds.add(frame.imageId);
   if (frame.maskImageId) maskIds.add(frame.maskImageId);
+  if (frame.normalImageId) normalIds.add(frame.normalImageId);
 }
 
 /**
@@ -81,19 +83,20 @@ export function buildModularExportData(
     }
   }
 
-  // Collect all unique albedo and mask imageIds referenced by exported parts
+  // Collect all unique albedo, mask, and normal imageIds referenced by exported parts
   const albedoIds = new Set<string>();
   const maskIds = new Set<string>();
+  const normalIds = new Set<string>();
   for (const slotParts of Object.values(exportedParts)) {
     for (const part of slotParts) {
       for (const visual of Object.values(part.directions)) {
         for (const frame of visual.frames) {
-          collectFrameImageIds(frame, albedoIds, maskIds);
+          collectFrameImageIds(frame, albedoIds, maskIds, normalIds);
         }
         if (visual.actionFrames) {
           for (const seq of Object.values(visual.actionFrames)) {
             for (const frame of seq) {
-              collectFrameImageIds(frame, albedoIds, maskIds);
+              collectFrameImageIds(frame, albedoIds, maskIds, normalIds);
             }
           }
         }
@@ -101,7 +104,7 @@ export function buildModularExportData(
     }
   }
 
-  const allImageIds = new Set<string>([...albedoIds, ...maskIds]);
+  const allImageIds = new Set<string>([...albedoIds, ...maskIds, ...normalIds]);
   const usedFilenames = new Set<string>();
   const imageFiles: Record<string, string> = {};
   const textures: ModularTextureEntry[] = [];
@@ -116,7 +119,7 @@ export function buildModularExportData(
     }
     usedFilenames.add(baseName);
 
-    const isMask = maskIds.has(imageId) && !albedoIds.has(imageId);
+    const isMask = (maskIds.has(imageId) || normalIds.has(imageId)) && !albedoIds.has(imageId);
     const png = encodePngRGBA(img.width, img.height, img.data);
     imageFiles[imageId] = `textures/${baseName}`;
     textures.push({

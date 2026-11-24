@@ -110,12 +110,14 @@ function getHelpText(): string {
     '                      [--size <128>] [--dirs SE,SW,N] [--actions idle,walk] [--psd <file.psd>]',
     '  paperdollkit batch  --out <dir> --count <N> --seed <seed> [--archetype any|knight|mage|ranger|rogue|noble|civilian]',
     '                      [--size <128>] [--psd <file.psd>]',
+    '  paperdollkit mcp    Start headless stdio JSON-RPC 2.0 MCP Server for AI agents',
     '',
     'Examples:',
     '  pnpm cli audit',
     '  pnpm cli export --mode modular --engine dual --name knight_kit --out ./out/kit',
     '  pnpm cli export --mode baked --engine godot4 --seed hero-42 --archetype mage --out ./out/mage',
     '  pnpm cli batch --count 8 --seed riverford --out ./out/village',
+    '  pnpm cli mcp',
   ].join('\n');
 }
 
@@ -388,3 +390,5 @@ export function runCli(argv: string[]): CliResult {
     return { exitCode: 1, stdout, stderr };
   }
 }
+
+export * from './mcp.js';

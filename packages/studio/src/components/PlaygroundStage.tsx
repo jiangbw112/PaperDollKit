@@ -15,6 +15,7 @@ import {
   Dices,
   Edit3,
   Footprints,
+  Gamepad2,
   Pause,
   Play,
   Plus,
@@ -25,6 +26,7 @@ import {
   Trash2,
   UserPlus,
   Users,
+  Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SavedCharacterEntry } from '../utils/character-library.ts';
@@ -100,6 +102,31 @@ function vectorToDirection8(dx: number, dy: number): DirectionId {
   return 'NE';
 }
 
+function directionToAngleRad(dir: DirectionId): number {
+  const map: Record<DirectionId, number> = {
+    E: 0,
+    SE: Math.PI * 0.25,
+    S: Math.PI * 0.5,
+    SW: Math.PI * 0.75,
+    W: Math.PI,
+    NW: -Math.PI * 0.75,
+    N: -Math.PI * 0.5,
+    NE: -Math.PI * 0.25,
+  };
+  return map[dir] ?? 0;
+}
+
+interface StageVfx {
+  id: string;
+  type: 'slash' | 'cast';
+  x: number;
+  y: number;
+  angleRad: number;
+  createdAtMs: number;
+  durationMs: number;
+  hitCount: number;
+}
+
 function createRandomConfig(pack: AssetPackManifest): CharacterConfig {
   return generateSeededCharacter(pack, {
     archetype: 'any',
@@ -157,9 +184,20 @@ export function PlaygroundStage({
   const roamRef = useRef(roamEnabled);
   roamRef.current = roamEnabled;
 
+  const [wasdEnabled, setWasdEnabled] = useState(false);
+  const wasdRef = useRef(wasdEnabled);
+  wasdRef.current = wasdEnabled;
+  const keysPressedRef = useRef<Set<string>>(new Set());
+  const heroActionLockUntilRef = useRef(0);
+
+  const [vfxList, setVfxList] = useState<StageVfx[]>([]);
+  const vfxListRef = useRef<StageVfx[]>([]);
+  vfxListRef.current = vfxList;
+
   const [activeBatchAction, setActiveBatchAction] = useState<string | null>('idle');
   const [showLabels, setShowLabels] = useState(true);
   const [fps, setFps] = useState(60);
+  const [frameTimeMs, setFrameTimeMs] = useState(16.7);
   const [totalLayersDrawn, setTotalLayersDrawn] = useState(0);
 
   const nextActorSeqRef = useRef(1);
@@ -350,6 +388,29 @@ export function PlaygroundStage({
     onToast('已批量添加 10 名角色，可开启「自由漫游」测试多人遮挡与帧率');
   }, [pack, spawnActorFromConfig, onToast]);
 
+  const handleSpawnCrowd25 = useCallback(() => {
+    const pool = pack.presets.filter((p) => p.id !== 'mannequin');
+    const dirs: DirectionId[] = ['S', 'SE', 'SW', 'E', 'W', 'NE', 'NW'];
+    const spawned: PlaygroundActor[] = [];
+    for (let i = 0; i < 25; i++) {
+      const preset = pool[Math.floor(Math.random() * pool.length)] ?? pack.presets[0];
+      if (!preset) continue;
+      const ch = new PaperDollCharacter(pack);
+      ch.applyPreset(preset.id);
+      ch.setDirection(dirs[Math.floor(Math.random() * dirs.length)]!);
+      ch.setAction('idle');
+      const pos = {
+        x: Math.round((Math.random() - 0.5) * 620),
+        y: Math.round((Math.random() - 0.5) * 340),
+      };
+      spawned.push(
+        spawnActorFromConfig(ch.toJSON(), preset.name.replace(/^\d+\s*·\s*/, ''), preset.id, pos),
+      );
+    }
+    setActors((prev) => [...prev, ...spawned]);
+    onToast('已投放 +25 极限压测角色群，请观察右上角 FPS 与帧耗时');
+  }, [pack, spawnActorFromConfig, onToast]);
+
   const handleClearAll = useCallback(() => {
     setActors([]);
     setSelectedId(null);
@@ -400,6 +461,106 @@ export function PlaygroundStage({
     setSelectedId((cur) => (cur === id ? null : cur));
   }, []);
 
+  // Keyboard listener for Playable Hero WASD + Space/J (Attack + Hitbox) + K (Cast VFX)
+  useEffect(() => {
+    if (!active || !wasdEnabled) {
+      keysPressedRef.current.clear();
+      return;
+    }
+
+    const triggerHeroSkill = (skill: 'attack' | 'cast') => {
+      const list = actorsRef.current;
+      const hero = list.find((a) => a.id === selectedIdRef.current) ?? list[0];
+      if (!hero) return;
+      if (!selectedIdRef.current) setSelectedId(hero.id);
+
+      const nowSim = simTimeRef.current;
+      hero.config.action = skill;
+      hero.actionStartedAtMs = nowSim;
+      hero.timeOffsetMs = 0;
+      hero.targetX = null;
+      hero.targetY = null;
+      heroActionLockUntilRef.current = nowSim + (skill === 'attack' ? 420 : 540);
+
+      const angleRad = directionToAngleRad(hero.config.direction);
+      const hitCenterX = hero.x + Math.cos(angleRad) * 56;
+      const hitCenterY = hero.y + Math.sin(angleRad) * 38;
+      let hitCount = 0;
+
+      if (skill === 'attack') {
+        for (const other of list) {
+          if (other.id === hero.id) continue;
+          const dist = Math.hypot(other.x - hitCenterX, (other.y - hitCenterY) * 1.35);
+          if (dist <= 95) {
+            other.config.action = 'hit';
+            other.actionStartedAtMs = nowSim;
+            other.timeOffsetMs = 0;
+            other.targetX = null;
+            other.targetY = null;
+            hitCount++;
+          }
+        }
+      }
+
+      const newVfx: StageVfx = {
+        id: `vfx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        type: skill === 'attack' ? 'slash' : 'cast',
+        x: skill === 'attack' ? hitCenterX : hero.x,
+        y: skill === 'attack' ? hitCenterY : hero.y,
+        angleRad,
+        createdAtMs: performance.now(),
+        durationMs: skill === 'attack' ? 320 : 520,
+        hitCount,
+      };
+      setVfxList((prev) => [...prev.slice(-10), newVfx]);
+      setActors((prev) => [...prev]);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+        return;
+      }
+      const code = e.code;
+      if (
+        code === 'KeyW' ||
+        code === 'KeyA' ||
+        code === 'KeyS' ||
+        code === 'KeyD' ||
+        code === 'ArrowUp' ||
+        code === 'ArrowDown' ||
+        code === 'ArrowLeft' ||
+        code === 'ArrowRight'
+      ) {
+        e.preventDefault();
+        keysPressedRef.current.add(code);
+      } else if (code === 'Space' || code === 'KeyJ') {
+        e.preventDefault();
+        if (!e.repeat) triggerHeroSkill('attack');
+      } else if (code === 'KeyK') {
+        e.preventDefault();
+        if (!e.repeat) triggerHeroSkill('cast');
+      }
+    };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      keysPressedRef.current.delete(e.code);
+    };
+
+    const onBlur = () => {
+      keysPressedRef.current.clear();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [active, wasdEnabled]);
+
   // Main 60FPS animation + AI roaming + Y-sorted multi-character WebGL2 render loop
   useEffect(() => {
     if (!active) return;
@@ -417,15 +578,24 @@ export function PlaygroundStage({
       fpsAccum += dtMs;
       if (fpsAccum >= 450) {
         setFps(Math.round((fpsFrames * 1000) / fpsAccum));
+        setFrameTimeMs(Math.round((fpsAccum / fpsFrames) * 10) / 10);
         fpsFrames = 0;
         fpsAccum = 0;
+      }
+
+      // Expire finished slash / cast VFX
+      if (vfxListRef.current.length > 0) {
+        const alive = vfxListRef.current.filter((v) => now - v.createdAtMs < v.durationMs);
+        if (alive.length !== vfxListRef.current.length) {
+          setVfxList(alive);
+        }
       }
 
       if (isPlayingRef.current) {
         const scaledDt = dtMs * speedRef.current;
         simTimeRef.current += scaledDt;
 
-        // Update locomotion / AI roaming directly on actor objects for smooth 60FPS motion
+        // Update locomotion / WASD hero / AI roaming directly on actor objects for smooth 60FPS motion
         const list = actorsRef.current;
         const roam = roamRef.current;
         const walkSpeedPxPerSec = 82;
@@ -434,8 +604,42 @@ export function PlaygroundStage({
         const halfH = Math.max(110, (sizeRef.current.height * 0.36) / stageZoomRef.current);
         let movedAny = false;
 
+        // Controlled hero WASD input
+        const controlledHeroId =
+          wasdRef.current && list.length > 0
+            ? (list.find((a) => a.id === selectedIdRef.current)?.id ?? list[0]!.id)
+            : null;
+        const keys = keysPressedRef.current;
+        const vx =
+          (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) -
+          (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
+        const vy =
+          (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) -
+          (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0);
+
         for (const actor of list) {
           if (dragRef.current?.mode === 'actor' && dragRef.current.actorId === actor.id) {
+            continue;
+          }
+
+          if (controlledHeroId && actor.id === controlledHeroId) {
+            const locked = simTimeRef.current < heroActionLockUntilRef.current;
+            if (vx !== 0 || vy !== 0) {
+              const len = Math.hypot(vx, vy) || 1;
+              const heroStep = (145 * scaledDt) / 1000;
+              actor.x += (vx / len) * heroStep;
+              actor.y += (vy / len) * heroStep * 0.75; // isometric Y compression
+              actor.config.direction = vectorToDirection8(vx, vy);
+              actor.targetX = null;
+              actor.targetY = null;
+              if (!locked) {
+                actor.config.action = 'walk';
+              }
+              movedAny = true;
+            } else if (!locked && actor.config.action !== 'idle') {
+              actor.config.action = 'idle';
+              movedAny = true;
+            }
             continue;
           }
 
@@ -742,9 +946,17 @@ export function PlaygroundStage({
               +10 压测
             </button>
             <button
+              onClick={handleSpawnCrowd25}
+              className="flex items-center justify-center gap-1 rounded border border-amber-500/35 bg-amber-950/35 px-2 py-1.5 text-[11px] font-medium text-amber-200 hover:bg-amber-900/50 transition"
+              title="一次性投放 25 名角色进行同屏合批极限性能压测"
+            >
+              <Zap className="h-3.5 w-3.5 text-amber-400" />
+              +25 极限压测
+            </button>
+            <button
               onClick={handleClearAll}
               disabled={actors.length === 0}
-              className="flex items-center justify-center gap-1 rounded border border-rose-500/30 bg-rose-950/40 px-2 py-1.5 text-[11px] font-medium text-rose-200 hover:bg-rose-900/50 disabled:opacity-40 transition"
+              className="col-span-2 flex items-center justify-center gap-1 rounded border border-rose-500/30 bg-rose-950/40 px-2 py-1.5 text-[11px] font-medium text-rose-200 hover:bg-rose-900/50 disabled:opacity-40 transition"
             >
               <Trash2 className="h-3.5 w-3.5" />
               清空场景
@@ -849,6 +1061,30 @@ export function PlaygroundStage({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setWasdEnabled((prev) => {
+                  const next = !prev;
+                  if (next) {
+                    setIsPlaying(true);
+                    if (!selectedIdRef.current && actorsRef.current[0]) {
+                      setSelectedId(actorsRef.current[0].id);
+                    }
+                    onToast('已开启 WASD 操控：WASD/方向键移动，Space/J 挥击(带命中判定)，K 施法');
+                  }
+                  return next;
+                });
+              }}
+              className={`flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium border transition ${
+                wasdEnabled
+                  ? 'border-emerald-400/70 bg-emerald-500/25 text-emerald-200 shadow-sm'
+                  : 'border-slate-700 bg-slate-800 text-slate-300 hover:text-white'
+              }`}
+              title="使用键盘 WASD/方向键操控选中角色行走，Space/J 攻击挥砍(触发受击)，K 施放法术环"
+            >
+              <Gamepad2 className="h-3 w-3" />
+              WASD 操控
+            </button>
             <button
               onClick={() => setShowLabels((v) => !v)}
               className={`flex items-center gap-1 rounded px-2 py-0.5 text-[11px] border transition ${
@@ -963,6 +1199,79 @@ export function PlaygroundStage({
             style={{ width: size.width, height: size.height }}
           />
 
+          {/* Combat Slash Hitbox & Cast Arcane Ring VFX Overlay */}
+          {vfxList.length > 0 && (
+            <svg className="pointer-events-none absolute inset-0 h-full w-full">
+              {vfxList.map((vfx) => {
+                const pt = worldToScreen(vfx.x, vfx.y);
+                const r = 46 * stageZoom;
+                if (vfx.type === 'slash') {
+                  const deg = (vfx.angleRad * 180) / Math.PI;
+                  return (
+                    <g key={vfx.id} transform={`translate(${pt.x}, ${pt.y - 36 * stageZoom})`}>
+                      {/* Melee hitbox indicator */}
+                      <ellipse
+                        cx={0}
+                        cy={28 * stageZoom}
+                        rx={58 * stageZoom}
+                        ry={30 * stageZoom}
+                        fill="rgba(244, 63, 94, 0.14)"
+                        stroke="rgba(251, 113, 133, 0.85)"
+                        strokeWidth="1.5"
+                        strokeDasharray="4 3"
+                      />
+                      {/* Glowing slash arc */}
+                      <path
+                        d={`M ${-r * 0.7} ${-r * 0.7} Q ${r * 0.9} 0 ${-r * 0.7} ${r * 0.7}`}
+                        fill="none"
+                        stroke="#fde047"
+                        strokeWidth={Math.max(3, 5 * stageZoom)}
+                        strokeLinecap="round"
+                        transform={`rotate(${deg})`}
+                        opacity="0.92"
+                      />
+                      {vfx.hitCount > 0 && (
+                        <text
+                          x={0}
+                          y={-r * 0.75}
+                          textAnchor="middle"
+                          fill="#fda4af"
+                          fontSize="12"
+                          fontWeight="bold"
+                        >
+                          HIT ×{vfx.hitCount}!
+                        </text>
+                      )}
+                    </g>
+                  );
+                }
+                return (
+                  <g key={vfx.id} transform={`translate(${pt.x}, ${pt.y})`}>
+                    <ellipse
+                      cx={0}
+                      cy={0}
+                      rx={72 * stageZoom}
+                      ry={36 * stageZoom}
+                      fill="rgba(168, 85, 247, 0.16)"
+                      stroke="#c084fc"
+                      strokeWidth="2.2"
+                      strokeDasharray="6 4"
+                    />
+                    <ellipse
+                      cx={0}
+                      cy={0}
+                      rx={48 * stageZoom}
+                      ry={24 * stageZoom}
+                      fill="none"
+                      stroke="#38bdf8"
+                      strokeWidth="1.5"
+                    />
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+
           {/* Floating Character Name Badges */}
           {showLabels &&
             actors.map((actor) => {
@@ -1006,7 +1315,7 @@ export function PlaygroundStage({
                   多人同屏空白场景（Playground）
                 </div>
                 <p className="mt-1.5 text-xs leading-relaxed opacity-80">
-                  从左侧点击任意角色即可投放进场景；支持自由拖拽排位、自动 Y 轴前后遮挡、双击/右键指挥行走，或一键开启「自由漫游」观察多人同屏效果。
+                  从左侧点击任意角色即可投放进场景；支持自由拖拽排位、自动 Y 轴前后遮挡、双击/右键指挥行走，或开启「WASD 操控」亲自体验移动挥击与施法。
                 </p>
               </div>
             </div>
@@ -1014,7 +1323,9 @@ export function PlaygroundStage({
 
           {/* Top-Right Performance & Depth-Sort HUD */}
           <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-900/85 px-2.5 py-1 font-mono text-[10px] text-slate-200 backdrop-blur">
-            <span className="text-emerald-400">{fps} FPS</span>
+            <span className={fps >= 50 ? 'text-emerald-400' : 'text-amber-400'}>{fps} FPS</span>
+            <span className="text-slate-600">|</span>
+            <span className="text-cyan-300">{frameTimeMs.toFixed(1)} ms</span>
             <span className="text-slate-600">|</span>
             <span>角色: {actors.length}</span>
             <span className="text-slate-600">|</span>
@@ -1025,7 +1336,9 @@ export function PlaygroundStage({
 
           {/* Bottom-Left Interaction Tip */}
           <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-slate-900/80 px-2.5 py-1 text-[11px] text-slate-300 backdrop-blur">
-            滚轮缩放 ({Math.round(stageZoom * 100)}%) · 拖拽角色排位 · 选中后双击/右键地面行走
+            {wasdEnabled
+              ? 'WASD 操控中：WASD/方向键移动 · Space/J 挥击(命中附近角色触发受击) · K 施法'
+              : `滚轮缩放 (${Math.round(stageZoom * 100)}%) · 拖拽角色排位 · 选中后双击/右键地面行走`}
           </div>
         </div>
 

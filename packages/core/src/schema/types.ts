@@ -158,6 +158,10 @@ export interface SpriteFrameRef {
   maskImageId?: string;
   /** Optional source rectangle in maskImageId (defaults to sourceRect if omitted). */
   maskRect?: Rect;
+  /** Optional tangent-space 2D normal map image aligned with albedo (RGB -> XYZ). */
+  normalImageId?: string;
+  /** Optional source rectangle in normalImageId (defaults to sourceRect if omitted). */
+  normalRect?: Rect;
   /** Optional per-frame sockets for attaching child equipment (e.g. hand_main, head_top). */
   sockets?: Record<string, SocketTransform>;
 }

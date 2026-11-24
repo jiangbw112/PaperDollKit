@@ -57,11 +57,14 @@ uniform int u_recolor_mode = 1; // 0=none, 1=mask_ramp, 2=tint
 uniform vec4 u_tint_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform float u_opacity : hint_range(0.0, 1.0) = 1.0;
 
-// Runtime gameplay VFX uniforms
+// Runtime gameplay VFX & 2D Normal Map lighting uniforms
 uniform float u_flash_amount : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 u_flash_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform float u_outline_width : hint_range(0.0, 6.0) = 0.0;
 uniform vec4 u_outline_color : source_color = vec4(0.08, 0.08, 0.12, 1.0);
+uniform sampler2D u_normal_tex : hint_normal, filter_linear, repeat_disable;
+uniform bool u_use_normal_map = false;
+uniform float u_normal_depth : hint_range(0.0, 2.0) = 1.0;
 
 void fragment() {
 \tvec4 albedo = texture(TEXTURE, UV);
@@ -117,6 +120,11 @@ void fragment() {
 \t\t\t+ c_skin * w_skin;
 \t} else if (u_recolor_mode == 2) {
 \t\trgb = albedo.rgb * u_tint_color.rgb;
+\t}
+
+\tif (u_use_normal_map) {
+\t\tNORMAL_MAP = texture(u_normal_tex, UV).rgb;
+\t\tNORMAL_MAP_DEPTH = u_normal_depth;
 \t}
 
 \trgb = mix(rgb, u_flash_color.rgb, u_flash_amount);
