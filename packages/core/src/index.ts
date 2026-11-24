@@ -8,3 +8,4 @@ export * from './data/presets.js';
 export * from './runtime/evaluator.js';
 export * from './runtime/character.js';
 export * from './runtime/generator.js';
+export * from './runtime/secondary-physics.js';

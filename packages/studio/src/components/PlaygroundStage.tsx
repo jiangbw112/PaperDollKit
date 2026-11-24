@@ -1,5 +1,6 @@
 import {
   PaperDollCharacter,
+  SecondaryPhysicsRig,
   generateSeededCharacter,
   type AssetPackManifest,
   type CharacterConfig,
@@ -574,6 +575,10 @@ export function PlaygroundStage({
     };
   }, [active, wasdEnabled]);
 
+  const actorPhysicsRef = useRef<Map<string, { rig: SecondaryPhysicsRig; prevX: number; prevY: number }>>(
+    new Map(),
+  );
+
   // Main 60FPS animation + AI roaming + Y-sorted multi-character WebGL2 render loop
   useEffect(() => {
     if (!active) return;
@@ -721,7 +726,25 @@ export function PlaygroundStage({
           const elapsedMs = Math.max(0, simTimeRef.current - actor.actionStartedAtMs + actor.timeOffsetMs);
           // Wrap modulo clip duration so non-looping clips (attack/cast/hit) repeat cleanly in Playground preview
           const localTimeMs = elapsedMs % durationMs;
-          const frame = ch.evaluate(localTimeMs);
+          const baseFrame = ch.evaluate(localTimeMs);
+
+          // Step per-actor cloak/hair spring-damper inertia from actual world velocity
+          let phys = actorPhysicsRef.current.get(actor.id);
+          if (!phys) {
+            phys = { rig: new SecondaryPhysicsRig(), prevX: actor.x, prevY: actor.y };
+            actorPhysicsRef.current.set(actor.id, phys);
+          }
+          const dtSec = Math.max(0.001, (dtMs * speedRef.current) / 1000);
+          const avx = (actor.x - phys.prevX) / dtSec;
+          const avy = (actor.y - phys.prevY) / dtSec;
+          phys.prevX = actor.x;
+          phys.prevY = actor.y;
+          phys.rig.step(dtSec, {
+            vx: avx,
+            vy: avy,
+            wind: actor.config.action === 'cast' ? 0.5 : 0.16,
+          });
+          const frame = phys.rig.applyToEvaluatedFrame(baseFrame, 1.0);
           layerSum += frame.layers.length;
 
           const panXCss = p.x + actor.x * z;

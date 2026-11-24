@@ -1,6 +1,7 @@
 import {
   PaperDollCharacter,
   SCHEMA_VERSION,
+  SecondaryPhysicsRig,
   auditAssetPack,
   createStarterIsometricPack,
   generateSeededCharacter,
@@ -380,18 +381,44 @@ export default function App() {
   comboStepIdxRef.current = comboStepIdx;
   const triggerHitFlashRef = useRef<(hex?: string) => void>(() => {});
 
+  const [physicsEnabled, setPhysicsEnabled] = useState(true);
+  const physicsRigRef = useRef<SecondaryPhysicsRig>(new SecondaryPhysicsRig());
+
   const activeClip = pack.animations[config.action] ?? Object.values(pack.animations)[0]!;
 
-  // Smooth requestAnimationFrame clock (supports Combo Sequencer state transitions)
+  // Smooth requestAnimationFrame clock (supports Combo Sequencer & Secondary Physics)
   useEffect(() => {
     if (!isPlaying) return;
     let rafId = 0;
     let lastTs = performance.now();
     const tick = (now: number) => {
-      const dt = (now - lastTs) * speed;
+      const dtMs = (now - lastTs) * speed;
       lastTs = now;
+      if (physicsEnabled) {
+        const phase = (now * 0.001) * (config.action === 'walk' ? 7.5 : config.action === 'attack' ? 11.0 : 3.2);
+        const impulseX =
+          config.action === 'attack'
+            ? Math.sin(phase) * 9.0
+            : config.action === 'walk'
+              ? Math.sin(phase) * 4.2
+              : config.action === 'cast'
+                ? Math.cos(phase * 1.4) * 5.0
+                : 0;
+        const impulseY =
+          config.action === 'cast'
+            ? -5.5 + Math.sin(phase * 2) * 2.5
+            : config.action === 'walk'
+              ? Math.abs(Math.sin(phase)) * 3.0
+              : 0;
+        physicsRigRef.current.step(dtMs / 1000, {
+          vx: config.action === 'walk' ? 75 : 0,
+          impulseX,
+          impulseY,
+          wind: config.action === 'cast' ? 0.55 : 0.22,
+        });
+      }
       setTimeMs((prev) => {
-        const next = prev + dt;
+        const next = prev + dtMs;
         const dur = Math.max(1, activeClip.durationMs);
         if (comboPlaying && comboQueueRef.current.length > 0 && next >= dur) {
           const queue = comboQueueRef.current;
@@ -415,13 +442,14 @@ export default function App() {
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isPlaying, speed, activeClip.durationMs, activeClip.loop, comboPlaying]);
+  }, [isPlaying, speed, activeClip.durationMs, activeClip.loop, comboPlaying, physicsEnabled, config.action]);
 
-  // Evaluate current character frame
+  // Evaluate current character frame (with optional secondary cloak/hair spring physics)
   const evaluatedFrame = useMemo(() => {
     const ch = new PaperDollCharacter(pack, config);
-    return ch.evaluate(timeMs, { explodeSpread });
-  }, [pack, config, timeMs, explodeSpread]);
+    const base = ch.evaluate(timeMs, { explodeSpread });
+    return physicsEnabled ? physicsRigRef.current.applyToEvaluatedFrame(base, 1.0) : base;
+  }, [pack, config, timeMs, explodeSpread, physicsEnabled]);
 
   const mutateCharacter = useCallback(
     (mutator: (ch: PaperDollCharacter) => void, recordUndo = true) => {
@@ -1894,6 +1922,23 @@ export default function App() {
                   <option value={1.5}>1.5×</option>
                 </select>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPhysicsEnabled((v) => {
+                    if (v) physicsRigRef.current.reset();
+                    return !v;
+                  });
+                }}
+                className={`rounded border px-2 py-0.5 text-[11px] font-medium transition ${
+                  physicsEnabled
+                    ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-200'
+                    : 'border-slate-700 bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                }`}
+                title="开启/关闭披风与长发二阶弹簧阻尼惯性摆动物理"
+              >
+                惯性物理 {physicsEnabled ? 'ON' : 'OFF'}
+              </button>
               <div className="flex items-center gap-1.5">
                 <span>爆炸展开</span>
                 <input

@@ -301,4 +301,32 @@ describe('@paperdollkit/core v2.0 IR & runtime', () => {
     expect(maskAudit.ok).toBe(false);
     expect(maskAudit.issues.some((i) => i.code === 'MASK_ALPHA_NOT_OPAQUE')).toBe(true);
   });
+
+  it('simulates damped spring secondary physics for cloaks/hair and applies cleanly to EvaluatedFrame', async () => {
+    const { SecondaryPhysicsRig } = await import('../src/index.js');
+    const rig = new SecondaryPhysicsRig();
+
+    // Sprint to the right (vx = +180) -> cloak should trail behind (negative x & angle)
+    for (let i = 0; i < 20; i++) {
+      rig.step(1 / 60, { vx: 180, vy: 0, wind: 0 });
+    }
+    const movingCloak = rig.getState('back_cloak')!;
+    expect(movingCloak.x).toBeLessThan(-2);
+    expect(movingCloak.angleDeg).toBeLessThan(-2);
+
+    const ch = new PaperDollCharacter(pack, { preset: 'knight' });
+    const baseFrame = ch.evaluate(0);
+    const physFrame = rig.applyToEvaluatedFrame(baseFrame, 1.0);
+    const baseTorso = baseFrame.layers.find((l) => l.slotId === 'torso_top');
+    const physTorso = physFrame.layers.find((l) => l.slotId === 'torso_top');
+    expect(physTorso?.worldTransform.x).toBe(baseTorso?.worldTransform.x);
+
+    // Stop moving -> spring smoothly damps back near 0 without exploding
+    for (let i = 0; i < 180; i++) {
+      rig.step(1 / 60, { vx: 0, vy: 0, wind: 0 });
+    }
+    const settled = rig.getState('back_cloak')!;
+    expect(Math.abs(settled.x)).toBeLessThan(0.25);
+    expect(Math.abs(settled.angleDeg)).toBeLessThan(0.35);
+  });
 });
