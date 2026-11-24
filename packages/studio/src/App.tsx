@@ -35,6 +35,7 @@ import {
   FolderUp,
   Grid2x2,
   Layers,
+  ListVideo,
   Package,
   Palette,
   Pause,
@@ -368,9 +369,19 @@ export default function App() {
   const slotMaskInputRef = useRef<HTMLInputElement | null>(null);
   const canvasExportRef = useRef<HTMLCanvasElement | null>(null);
 
+  const [comboOpen, setComboOpen] = useState(false);
+  const [comboPlaying, setComboPlaying] = useState(false);
+  const [comboQueue, setComboQueue] = useState<string[]>(['walk', 'attack', 'cast', 'idle']);
+  const [comboStepIdx, setComboStepIdx] = useState(0);
+  const comboQueueRef = useRef(comboQueue);
+  comboQueueRef.current = comboQueue;
+  const comboStepIdxRef = useRef(comboStepIdx);
+  comboStepIdxRef.current = comboStepIdx;
+  const triggerHitFlashRef = useRef<(hex?: string) => void>(() => {});
+
   const activeClip = pack.animations[config.action] ?? Object.values(pack.animations)[0]!;
 
-  // Smooth requestAnimationFrame clock
+  // Smooth requestAnimationFrame clock (supports Combo Sequencer state transitions)
   useEffect(() => {
     if (!isPlaying) return;
     let rafId = 0;
@@ -380,9 +391,22 @@ export default function App() {
       lastTs = now;
       setTimeMs((prev) => {
         const next = prev + dt;
+        const dur = Math.max(1, activeClip.durationMs);
+        if (comboPlaying && comboQueueRef.current.length > 0 && next >= dur) {
+          const queue = comboQueueRef.current;
+          const nextIdx = (comboStepIdxRef.current + 1) % queue.length;
+          comboStepIdxRef.current = nextIdx;
+          const nextAction = queue[nextIdx]!;
+          setComboStepIdx(nextIdx);
+          setConfig((c) => ({ ...c, action: nextAction }));
+          if (nextAction === 'hit') {
+            triggerHitFlashRef.current('#ffffff');
+          }
+          return 0;
+        }
         return activeClip.loop
-          ? next % Math.max(1, activeClip.durationMs)
-          : next > activeClip.durationMs
+          ? next % dur
+          : next > dur
             ? 0
             : next;
       });
@@ -390,7 +414,7 @@ export default function App() {
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isPlaying, speed, activeClip.durationMs, activeClip.loop]);
+  }, [isPlaying, speed, activeClip.durationMs, activeClip.loop, comboPlaying]);
 
   // Evaluate current character frame
   const evaluatedFrame = useMemo(() => {
@@ -727,6 +751,7 @@ export default function App() {
     setVfxFlashAmount(1);
     flashRafRef.current = requestAnimationFrame(step);
   }, []);
+  triggerHitFlashRef.current = triggerHitFlash;
 
   useEffect(() => () => cancelAnimationFrame(flashRafRef.current), []);
 
@@ -1694,6 +1719,148 @@ export default function App() {
                             </button>
                           </div>
                         ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* P3-6 Action Combo Sequencer Popover */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setEventsEditorOpen(false);
+                    setComboOpen((v) => !v);
+                  }}
+                  className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium transition ${
+                    comboPlaying
+                      ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-200'
+                      : comboOpen
+                        ? 'border-sky-500/60 bg-sky-500/20 text-sky-200'
+                        : 'border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="编排动作连招序列并自动串联播放过渡预览"
+                >
+                  <ListVideo className="h-3 w-3 text-emerald-400" />
+                  <span>{comboPlaying ? `连招中 (${comboStepIdx + 1}/${comboQueue.length})` : '连招编排'}</span>
+                </button>
+
+                {comboOpen && (
+                  <div className="absolute right-0 bottom-9 z-40 w-80 rounded-xl border border-slate-700/90 bg-slate-900/95 p-3 shadow-2xl backdrop-blur space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-emerald-200">
+                        动作连招编排 & 状态过渡预览
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!comboPlaying && comboQueue.length > 0) {
+                            setComboStepIdx(0);
+                            comboStepIdxRef.current = 0;
+                            setConfig((c) => ({ ...c, action: comboQueue[0]! }));
+                            setTimeMs(0);
+                            setIsPlaying(true);
+                            setComboPlaying(true);
+                          } else {
+                            setComboPlaying(false);
+                          }
+                        }}
+                        disabled={comboQueue.length === 0}
+                        className={`flex items-center gap-1 rounded px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                          comboPlaying
+                            ? 'bg-rose-600 text-white hover:bg-rose-500'
+                            : 'bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40'
+                        }`}
+                      >
+                        {comboPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                        {comboPlaying ? '停止连招' : '播放连招'}
+                      </button>
+                    </div>
+
+                    {/* Quick Combo Templates */}
+                    <div className="flex flex-wrap gap-1">
+                      {(
+                        [
+                          ['标准起手', ['walk', 'attack', 'idle']],
+                          ['三段爆发', ['attack', 'attack', 'cast', 'idle']],
+                          ['战技连携', ['walk', 'attack', 'hit', 'cast', 'idle']],
+                        ] as const
+                      ).map(([label, seq]) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => {
+                            setComboQueue([...seq]);
+                            setComboStepIdx(0);
+                            comboStepIdxRef.current = 0;
+                          }}
+                          className="rounded border border-slate-700 bg-slate-800/80 px-2 py-0.5 text-[10px] text-slate-300 hover:border-emerald-500/50 hover:text-emerald-200 transition"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Ordered Queue Chips */}
+                    <div className="flex flex-wrap items-center gap-1 rounded-lg border border-slate-800 bg-slate-950/70 p-2 min-h-[40px]">
+                      {comboQueue.length === 0 ? (
+                        <span className="text-[11px] text-slate-500">点击下方动作按钮添加连招步骤</span>
+                      ) : (
+                        comboQueue.map((actId, idx) => {
+                          const label = pack.animations[actId]?.label ?? actId;
+                          const isCurrent = comboPlaying && comboStepIdx === idx;
+                          return (
+                            <span
+                              key={`${actId}-${idx}`}
+                              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium transition ${
+                                isCurrent
+                                  ? 'bg-emerald-500 text-slate-950 shadow'
+                                  : 'bg-slate-800 text-slate-200 border border-slate-700'
+                              }`}
+                            >
+                              <span>{idx + 1}. {label}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setComboQueue((q) => q.filter((_, i) => i !== idx));
+                                  setComboStepIdx(0);
+                                }}
+                                className="opacity-70 hover:opacity-100"
+                                title="移除该步"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Append Action Buttons */}
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <div className="flex flex-wrap gap-1">
+                        {Object.values(pack.animations).map((clip) => (
+                          <button
+                            key={clip.id}
+                            type="button"
+                            onClick={() => setComboQueue((q) => [...q, clip.id])}
+                            className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] text-sky-300 hover:border-sky-500 hover:bg-slate-800 transition"
+                          >
+                            + {clip.label}
+                          </button>
+                        ))}
+                      </div>
+                      {comboQueue.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setComboPlaying(false);
+                            setComboQueue([]);
+                          }}
+                          className="text-[10px] text-slate-500 hover:text-rose-400"
+                        >
+                          清空
+                        </button>
                       )}
                     </div>
                   </div>

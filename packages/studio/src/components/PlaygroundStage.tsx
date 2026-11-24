@@ -125,6 +125,7 @@ interface StageVfx {
   createdAtMs: number;
   durationMs: number;
   hitCount: number;
+  comboStep?: number;
 }
 
 function createRandomConfig(pack: AssetPackManifest): CharacterConfig {
@@ -461,7 +462,9 @@ export function PlaygroundStage({
     setSelectedId((cur) => (cur === id ? null : cur));
   }, []);
 
-  // Keyboard listener for Playable Hero WASD + Space/J (Attack + Hitbox) + K (Cast VFX)
+  const heroComboRef = useRef({ step: 0, lastAtMs: 0 });
+
+  // Keyboard listener for Playable Hero WASD + Space/J (3-Hit Combo Attack + Hitbox) + K (Cast VFX)
   useEffect(() => {
     if (!active || !wasdEnabled) {
       keysPressedRef.current.clear();
@@ -475,23 +478,32 @@ export function PlaygroundStage({
       if (!selectedIdRef.current) setSelectedId(hero.id);
 
       const nowSim = simTimeRef.current;
+      const nowPerf = performance.now();
+      let comboStep = 1;
+      if (skill === 'attack') {
+        const prev = heroComboRef.current;
+        comboStep = nowPerf - prev.lastAtMs <= 1100 ? (prev.step % 3) + 1 : 1;
+        heroComboRef.current = { step: comboStep, lastAtMs: nowPerf };
+      }
+
       hero.config.action = skill;
       hero.actionStartedAtMs = nowSim;
       hero.timeOffsetMs = 0;
       hero.targetX = null;
       hero.targetY = null;
-      heroActionLockUntilRef.current = nowSim + (skill === 'attack' ? 420 : 540);
+      heroActionLockUntilRef.current = nowSim + (skill === 'attack' ? (comboStep === 3 ? 480 : 380) : 540);
 
       const angleRad = directionToAngleRad(hero.config.direction);
-      const hitCenterX = hero.x + Math.cos(angleRad) * 56;
-      const hitCenterY = hero.y + Math.sin(angleRad) * 38;
+      const hitCenterX = hero.x + Math.cos(angleRad) * (comboStep === 3 ? 64 : 56);
+      const hitCenterY = hero.y + Math.sin(angleRad) * (comboStep === 3 ? 44 : 38);
+      const hitRadius = comboStep === 3 ? 125 : 95;
       let hitCount = 0;
 
       if (skill === 'attack') {
         for (const other of list) {
           if (other.id === hero.id) continue;
           const dist = Math.hypot(other.x - hitCenterX, (other.y - hitCenterY) * 1.35);
-          if (dist <= 95) {
+          if (dist <= hitRadius) {
             other.config.action = 'hit';
             other.actionStartedAtMs = nowSim;
             other.timeOffsetMs = 0;
@@ -508,9 +520,10 @@ export function PlaygroundStage({
         x: skill === 'attack' ? hitCenterX : hero.x,
         y: skill === 'attack' ? hitCenterY : hero.y,
         angleRad,
-        createdAtMs: performance.now(),
-        durationMs: skill === 'attack' ? 320 : 520,
+        createdAtMs: nowPerf,
+        durationMs: skill === 'attack' ? (comboStep === 3 ? 420 : 320) : 520,
         hitCount,
+        comboStep: skill === 'attack' ? comboStep : undefined,
       };
       setVfxList((prev) => [...prev.slice(-10), newVfx]);
       setActors((prev) => [...prev]);
@@ -1214,39 +1227,67 @@ export function PlaygroundStage({
                 const r = 46 * stageZoom;
                 if (vfx.type === 'slash') {
                   const deg = (vfx.angleRad * 180) / Math.PI;
+                  const step = vfx.comboStep ?? 1;
+                  const isCrit = step === 3;
+                  const strokeCol = isCrit ? '#fb7185' : step === 2 ? '#fb923c' : '#fde047';
+                  const arcR = r * (isCrit ? 1.28 : step === 2 ? 1.12 : 1.0);
+                  const badgeText =
+                    isCrit
+                      ? vfx.hitCount > 0
+                        ? `3-HIT CRIT ×${vfx.hitCount}!`
+                        : '3-HIT FINISHER!'
+                      : step === 2
+                        ? vfx.hitCount > 0
+                          ? `2-HIT COMBO ×${vfx.hitCount}!`
+                          : '2-HIT COMBO!'
+                        : vfx.hitCount > 0
+                          ? `HIT ×${vfx.hitCount}!`
+                          : '';
                   return (
                     <g key={vfx.id} transform={`translate(${pt.x}, ${pt.y - 36 * stageZoom})`}>
                       {/* Melee hitbox indicator */}
                       <ellipse
                         cx={0}
                         cy={28 * stageZoom}
-                        rx={58 * stageZoom}
-                        ry={30 * stageZoom}
-                        fill="rgba(244, 63, 94, 0.14)"
-                        stroke="rgba(251, 113, 133, 0.85)"
-                        strokeWidth="1.5"
+                        rx={(isCrit ? 74 : 58) * stageZoom}
+                        ry={(isCrit ? 38 : 30) * stageZoom}
+                        fill={isCrit ? 'rgba(244, 63, 94, 0.22)' : 'rgba(244, 63, 94, 0.14)'}
+                        stroke={isCrit ? '#fda4af' : 'rgba(251, 113, 133, 0.85)'}
+                        strokeWidth={isCrit ? '2.2' : '1.5'}
                         strokeDasharray="4 3"
                       />
-                      {/* Glowing slash arc */}
+                      {/* Primary glowing slash arc */}
                       <path
-                        d={`M ${-r * 0.7} ${-r * 0.7} Q ${r * 0.9} 0 ${-r * 0.7} ${r * 0.7}`}
+                        d={`M ${-arcR * 0.7} ${-arcR * 0.7} Q ${arcR * 0.95} 0 ${-arcR * 0.7} ${arcR * 0.7}`}
                         fill="none"
-                        stroke="#fde047"
-                        strokeWidth={Math.max(3, 5 * stageZoom)}
+                        stroke={strokeCol}
+                        strokeWidth={Math.max(3, (isCrit ? 7 : 5) * stageZoom)}
                         strokeLinecap="round"
                         transform={`rotate(${deg})`}
-                        opacity="0.92"
+                        opacity="0.95"
                       />
-                      {vfx.hitCount > 0 && (
+                      {/* Secondary inner arc on 2-hit & 3-hit combo */}
+                      {step >= 2 && (
+                        <path
+                          d={`M ${-arcR * 0.52} ${-arcR * 0.52} Q ${arcR * 0.72} 0 ${-arcR * 0.52} ${arcR * 0.52}`}
+                          fill="none"
+                          stroke="#fef08a"
+                          strokeWidth={Math.max(2, 3 * stageZoom)}
+                          strokeLinecap="round"
+                          transform={`rotate(${deg + (isCrit ? -12 : 10)})`}
+                          opacity="0.9"
+                        />
+                      )}
+                      {badgeText && (
                         <text
                           x={0}
-                          y={-r * 0.75}
+                          y={-arcR * 0.78}
                           textAnchor="middle"
-                          fill="#fda4af"
-                          fontSize="12"
+                          fill={isCrit ? '#fde047' : '#fda4af'}
+                          fontSize={isCrit ? '14' : '12'}
                           fontWeight="bold"
                         >
-                          HIT ×{vfx.hitCount}!
+                          {badgeText}
                         </text>
                       )}
                     </g>
