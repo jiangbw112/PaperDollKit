@@ -1,7 +1,10 @@
 import {
   PaperDollCharacter,
   SCHEMA_VERSION,
+  auditAssetPack,
   createStarterIsometricPack,
+  generateSeededCharacter,
+  type AssetAuditReport,
   type AssetPackManifest,
   type CharacterConfig,
   type DirectionId,
@@ -111,6 +114,7 @@ export default function App() {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [importToast, setImportToast] = useState<string | null>(null);
   const [lastReport, setLastReport] = useState<ImportReport | null>(null);
+  const [lastAudit, setLastAudit] = useState<AssetAuditReport | null>(null);
 
   const packReadyRef = useRef(false);
   const packRef = useRef(pack);
@@ -433,6 +437,7 @@ export default function App() {
         setImages(res.images);
         setImagesVersion((v) => v + 1);
         setLastReport(res.report);
+        setLastAudit(auditAssetPack(res.pack, res.images));
 
         // Automatically equip newly imported parts so user sees them immediately!
         setConfig((prev) => {
@@ -484,6 +489,7 @@ export default function App() {
         setImages(res.images);
         setImagesVersion((v) => v + 1);
         setLastReport(res.report);
+        setLastAudit(auditAssetPack(res.pack, res.images));
 
         if (!isMask) {
           setConfig((prev) => {
@@ -708,27 +714,18 @@ export default function App() {
 
             <button
               onClick={() => {
-                const palKeys = Object.keys(pack.palettes);
-                const skinKeys = Object.keys(pack.skins).filter((k) => k !== 'wood');
-                const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
-                const mainPal = pick(palKeys);
-                const accentPal = pick(palKeys);
-                setActivePresetId('custom');
-                mutateCharacter((ch) => {
-                  ch.setSkin(pick(skinKeys));
-                  for (const s of pack.slots) {
-                    const list = pack.parts[s.id] ?? [];
-                    if (list.length === 0) continue;
-                    const choices = s.required ? list.map((p) => p.id) : ['none', ...list.map((p) => p.id)];
-                    ch.setSlot(s.id, pick(choices));
-                    ch.setPalette(s.id, Math.random() < 0.65 ? mainPal : accentPal);
-                  }
-                  ch.setSlot('back_arm', ch.slots.front_arm ?? 'bare');
-                  ch.setPalette('back_arm', ch.palettes.front_arm ?? mainPal);
+                pushHistory();
+                const gen = generateSeededCharacter(pack, {
+                  archetype: 'any',
+                  direction: config.direction,
+                  action: config.action,
                 });
+                setActivePresetId('custom');
+                setConfig(gen.config);
+                showToast(`已生成「${gen.archetypeLabel}」（种子: ${gen.seed}）`);
               }}
               className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/80 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition"
-              title="随机拼装一个角色"
+              title="按职业模板与协调配色规则随机生成角色"
             >
               <Dices className="h-3.5 w-3.5 text-amber-400" />
               随机
@@ -1447,8 +1444,8 @@ export default function App() {
             </div>
 
             {lastReport && (
-              <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-[11px] text-slate-400 space-y-0.5">
-                <div className="font-medium text-slate-200">最近导入报告</div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-[11px] text-slate-400 space-y-1">
+                <div className="font-medium text-slate-200">最近导入与质检报告</div>
                 <div>
                   导入部件: {lastReport.importedParts} · 贴图: {lastReport.importedImages} · 遮罩配对:{' '}
                   {lastReport.pairedMasks}
@@ -1457,6 +1454,27 @@ export default function App() {
                   <div className="text-amber-400">
                     未识别路径 ({lastReport.unmatchedPaths.length}):{' '}
                     {lastReport.unmatchedPaths.slice(0, 2).join(', ')}
+                  </div>
+                )}
+                {lastAudit && (
+                  <div
+                    className={`rounded border px-1.5 py-1 text-[10px] space-y-0.5 ${
+                      lastAudit.errorCount > 0
+                        ? 'border-rose-500/40 bg-rose-950/30 text-rose-200'
+                        : lastAudit.warningCount > 0
+                          ? 'border-amber-500/40 bg-amber-950/25 text-amber-200'
+                          : 'border-emerald-500/35 bg-emerald-950/25 text-emerald-300'
+                    }`}
+                  >
+                    <div className="font-semibold">
+                      资产质检：{lastAudit.errorCount === 0 ? '通过' : `${lastAudit.errorCount} 项错误`}
+                      {lastAudit.warningCount > 0 ? ` · ${lastAudit.warningCount} 项提示` : ''}
+                    </div>
+                    {lastAudit.issues.slice(0, 3).map((iss, idx) => (
+                      <div key={idx} className="truncate">
+                        • [{iss.slotId}/{iss.partId}] {iss.message}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

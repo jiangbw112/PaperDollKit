@@ -1,5 +1,6 @@
 import {
   PaperDollCharacter,
+  generateSeededCharacter,
   type AssetPackManifest,
   type CharacterConfig,
   type DirectionId,
@@ -100,27 +101,11 @@ function vectorToDirection8(dx: number, dy: number): DirectionId {
 }
 
 function createRandomConfig(pack: AssetPackManifest): CharacterConfig {
-  const ch = new PaperDollCharacter(pack);
-  const palKeys = Object.keys(pack.palettes);
-  const skinKeys = Object.keys(pack.skins).filter((k) => k !== 'wood');
-  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
-  const mainPal = pick(palKeys);
-  const accentPal = pick(palKeys);
-
-  ch.setSkin(pick(skinKeys.length > 0 ? skinKeys : Object.keys(pack.skins)));
-  for (const s of pack.slots) {
-    const list = pack.parts[s.id] ?? [];
-    if (list.length === 0) continue;
-    const choices = s.required ? list.map((p) => p.id) : ['none', ...list.map((p) => p.id)];
-    ch.setSlot(s.id, pick(choices));
-    ch.setPalette(s.id, Math.random() < 0.65 ? mainPal : accentPal);
-  }
-  ch.setSlot('back_arm', ch.slots.front_arm ?? 'bare');
-  ch.setPalette('back_arm', ch.palettes.front_arm ?? mainPal);
-  const dirs: DirectionId[] = ['S', 'SE', 'SW', 'E', 'W'];
-  ch.setDirection(pick(dirs));
-  ch.setAction('idle');
-  return ch.toJSON();
+  return generateSeededCharacter(pack, {
+    archetype: 'any',
+    randomDirection: true,
+    action: 'idle',
+  }).config;
 }
 
 export function PlaygroundStage({

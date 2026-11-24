@@ -6,9 +6,12 @@ import {
   LUT_TEXTURE_HEIGHT,
   LUT_TEXTURE_WIDTH,
   PaperDollCharacter,
+  auditAssetPack,
   bakeSlotLUTTexture,
   createStarterIsometricPack,
   evaluatePixelMaskRamp,
+  generateCharacterBatch,
+  generateSeededCharacter,
   parseColor,
   validateAssetPack,
   validateCharacterConfig,
@@ -248,5 +251,54 @@ describe('@paperdollkit/core v2.0 IR & runtime', () => {
     hatPart!.rules = { hidesSlots: ['nonexistent_slot'] };
     const invalidPack = validateAssetPack(ruledPack);
     expect(invalidPack.ok).toBe(false);
+  });
+
+  it('generates deterministic seeded characters and coherent batches', () => {
+    const a1 = generateSeededCharacter(pack, { seed: 'riverford-hero', archetype: 'knight' });
+    const a2 = generateSeededCharacter(pack, { seed: 'riverford-hero', archetype: 'knight' });
+    expect(a1.config).toEqual(a2.config);
+    expect(a1.archetype).toBe('knight');
+    expect(validateCharacterConfig(a1.config, pack).ok).toBe(true);
+    // Symmetric arm sleeves
+    expect(a1.config.slots.back_arm).toBe(a1.config.slots.front_arm);
+    expect(a1.config.palettes.back_arm).toBe(a1.config.palettes.front_arm);
+
+    const batch = generateCharacterBatch(pack, { count: 5, seed: 'village-01' });
+    expect(batch).toHaveLength(5);
+    const batchAgain = generateCharacterBatch(pack, { count: 5, seed: 'village-01' });
+    expect(batch.map((b) => b.config)).toEqual(batchAgain.map((b) => b.config));
+  });
+
+  it('audits AssetPack compliance (5-dir coverage & opaque Mask A=255 contract)', () => {
+    const cleanAudit = auditAssetPack(pack);
+    expect(cleanAudit.ok).toBe(true);
+    expect(cleanAudit.errorCount).toBe(0);
+    expect(cleanAudit.warningCount).toBe(0);
+
+    // 1. Missing canonical direction produces a warning
+    const brokenPack = createStarterIsometricPack();
+    const hat = brokenPack.parts.head_hat![0]!;
+    delete hat.directions.N;
+    const missingDirReport = auditAssetPack(brokenPack);
+    expect(missingDirReport.ok).toBe(true);
+    expect(missingDirReport.issues.some((i) => i.code === 'MISSING_DIRECTION')).toBe(true);
+
+    // 2. Non-opaque mask pixel (alpha < 250 with R > 0) produces an error
+    const maskId = hat.directions.S!.frames[0]!.maskImageId!;
+    const albedoId = hat.directions.S!.frames[0]!.imageId;
+    const badMaskData = new Uint8ClampedArray(256 * 256 * 4);
+    badMaskData[0] = 255; // R=255
+    badMaskData[3] = 128; // A=128 (non-opaque -> premultiplication hazard!)
+    const goodAlbedoData = new Uint8ClampedArray(256 * 256 * 4);
+    const imgLookup = {
+      get: (id: string) => {
+        if (id === maskId) return { width: 256, height: 256, data: badMaskData };
+        if (id === albedoId) return { width: 256, height: 256, data: goodAlbedoData };
+        return { width: 256, height: 256, data: new Uint8ClampedArray(256 * 256 * 4).fill(255) };
+      },
+    };
+    const maskAudit = auditAssetPack(brokenPack, imgLookup);
+    expect(maskAudit.ok).toBe(false);
+    expect(maskAudit.issues.some((i) => i.code === 'MASK_ALPHA_NOT_OPAQUE')).toBe(true);
   });
 });

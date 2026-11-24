@@ -267,6 +267,76 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     parts[s.id] = [];
   }
 
+  const PART_TAGS: Record<string, string[]> = {
+    // Legs
+    'legs_bottom:bare_legs': ['civilian'],
+    'legs_bottom:pants': ['light', 'ranged', 'stealth', 'civilian', 'noble'],
+    'legs_bottom:greaves': ['heavy', 'armor', 'melee'],
+    'legs_bottom:robe_skirt': ['magic', 'robe', 'arcane', 'noble'],
+    // Shoes
+    'feet_shoes:boots': ['light', 'ranged', 'stealth', 'civilian', 'noble'],
+    'feet_shoes:sabaton': ['heavy', 'armor', 'melee'],
+    'feet_shoes:sandals': ['magic', 'nature', 'civilian'],
+    // Torso
+    'torso_top:tunic': ['light', 'civilian', 'noble'],
+    'torso_top:plate': ['heavy', 'armor', 'melee'],
+    'torso_top:robe': ['magic', 'robe', 'arcane'],
+    'torso_top:vest': ['light', 'ranged', 'stealth', 'civilian'],
+    // Belt
+    'belt_waist:leather_belt': ['light', 'ranged', 'civilian', 'heavy'],
+    'belt_waist:sash': ['magic', 'robe', 'stealth', 'noble'],
+    'belt_waist:gold_belt': ['heavy', 'noble', 'armor'],
+    // Cape
+    'back_cape:short_cape': ['heavy', 'ranged', 'melee'],
+    'back_cape:long_cloak': ['magic', 'noble', 'robe'],
+    'back_cape:scarf': ['stealth', 'agility', 'light'],
+    // Back Props
+    'back_prop:quiver': ['ranged', 'nature'],
+    'back_prop:backpack': ['civilian', 'light'],
+    'back_prop:wings': ['noble', 'magic', 'arcane'],
+    // Arms
+    'front_arm:bare': ['civilian', 'light'],
+    'front_arm:long_sleeve': ['magic', 'robe', 'ranged', 'stealth', 'noble'],
+    'front_arm:armor_sleeve': ['heavy', 'armor', 'melee'],
+    'back_arm:bare': ['civilian', 'light'],
+    'back_arm:long_sleeve': ['magic', 'robe', 'ranged', 'stealth', 'noble'],
+    'back_arm:armor_sleeve': ['heavy', 'armor', 'melee'],
+    // Eyes & Beard
+    'face_eyes:dot': ['civilian', 'light', 'noble'],
+    'face_eyes:sharp': ['melee', 'heavy', 'ranged', 'noble'],
+    'face_eyes:visor_glow': ['heavy', 'magic', 'stealth'],
+    'face_eyes:glasses': ['magic', 'arcane', 'civilian'],
+    'face_beard:goatee': ['noble', 'civilian', 'magic'],
+    'face_beard:full_beard': ['heavy', 'magic', 'civilian'],
+    'face_beard:mask': ['stealth', 'agility', 'ranged'],
+    // Hair
+    'hair_style:short': ['heavy', 'civilian', 'noble'],
+    'hair_style:spiky': ['stealth', 'melee', 'ranged'],
+    'hair_style:long': ['magic', 'noble', 'robe'],
+    'hair_style:ponytail': ['ranged', 'agility', 'light'],
+    'hair_style:bun': ['noble', 'magic', 'light'],
+    // Hats
+    'head_hat:knight_helm': ['heavy', 'armor', 'melee'],
+    'head_hat:wizard_hat': ['magic', 'robe', 'arcane'],
+    'head_hat:hood': ['ranged', 'stealth', 'nature'],
+    'head_hat:pirate_hat': ['light', 'noble'],
+    'head_hat:crown': ['noble'],
+    'head_hat:bandana': ['civilian', 'melee', 'light'],
+    // Main Hand Weapons
+    'main_hand:sword': ['heavy', 'melee', 'noble'],
+    'main_hand:staff': ['magic', 'robe', 'arcane'],
+    'main_hand:bow': ['ranged', 'nature'],
+    'main_hand:axe': ['heavy', 'melee'],
+    'main_hand:dagger': ['stealth', 'agility'],
+    'main_hand:hammer': ['heavy', 'melee', 'civilian'],
+    'main_hand:lantern': ['civilian', 'magic'],
+    // Off Hand
+    'off_hand:shield': ['heavy', 'armor', 'melee'],
+    'off_hand:book': ['magic', 'robe', 'arcane'],
+    'off_hand:lantern': ['civilian', 'noble', 'magic'],
+    'off_hand:dagger_off': ['stealth', 'agility'],
+  };
+
   const addDirPart = (
     slotId: string,
     id: string,
@@ -279,7 +349,16 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     for (const d of CANONICAL_DIRS) {
       directions[d] = builder(d);
     }
-    parts[slotId]!.push({ id, name, slotId, recolorMode, directions, ...(rules ? { rules } : {}) });
+    const tags = PART_TAGS[`${slotId}:${id}`];
+    parts[slotId]!.push({
+      id,
+      name,
+      slotId,
+      recolorMode,
+      directions,
+      ...(rules ? { rules } : {}),
+      ...(tags ? { tags } : {}),
+    });
   };
 
   const addSharedPart = (
