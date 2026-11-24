@@ -3,7 +3,6 @@ import {
   LUT_TEXTURE_WIDTH,
   bakeSlotLUTTexture,
   type ColorPalette,
-  type HandColorBugMode,
   type SkinTone,
   type SlotId,
 } from '@paperdollkit/core';
@@ -13,7 +12,6 @@ interface LutPreviewBarProps {
   slotId: SlotId;
   palette: ColorPalette;
   skin: SkinTone;
-  handColorBugMode: HandColorBugMode;
 }
 
 const ROW_LABELS = [
@@ -27,7 +25,6 @@ export function LutPreviewBar({
   slotId,
   palette,
   skin,
-  handColorBugMode,
 }: LutPreviewBarProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -36,11 +33,11 @@ export function LutPreviewBar({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const baked = bakeSlotLUTTexture(slotId, palette, skin, handColorBugMode, LUT_TEXTURE_WIDTH);
+    const baked = bakeSlotLUTTexture(slotId, palette, skin, 'none', LUT_TEXTURE_WIDTH);
     const imgData = ctx.createImageData(LUT_TEXTURE_WIDTH, LUT_TEXTURE_HEIGHT);
     imgData.data.set(baked.data);
     ctx.putImageData(imgData, 0, 0);
-  }, [slotId, palette, skin, handColorBugMode]);
+  }, [slotId, palette, skin]);
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">

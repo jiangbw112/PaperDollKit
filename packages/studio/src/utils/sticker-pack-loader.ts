@@ -215,8 +215,8 @@ const PRESETS_17: CharacterPreset[] = [
 ];
 
 /**
- * Loads the Ultra-Q 0xsu-style paper-sticker / wooden-doll character pack
- * with ALL 17 slots, 55 parts, and 1 + 16 character presets from just 3 atlas files.
+ * Loads the Ultra-Q paper-sticker / wooden-doll character pack
+ * with ALL 17 slots, 75 parts, and 1 + 20 character presets from just 3 atlas files.
  */
 export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Promise<{
   pack: AssetPackManifest;
@@ -624,7 +624,7 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
   const pack: AssetPackManifest = {
     schemaVersion: SCHEMA_VERSION,
     id: 'sticker-doll-16',
-    name: '0xsu 风超Q贴纸木头人全16角色包 (256×256)',
+    name: '超Q纸片贴纸木头人角色包 (256×256)',
     canvasSize: { width: 256, height: 256 },
     perspective: 'isometric_8',
     directions: ISOMETRIC_8_DIRECTIONS,

@@ -8,7 +8,6 @@ import {
   type AssetPackManifest,
   type CharacterConfig,
   type DirectionId,
-  type HandColorBugMode,
   type SlotId,
   type Vec2,
 } from '@paperdollkit/core';
@@ -19,7 +18,6 @@ import {
 } from '@paperdollkit/importers';
 import {
   Bookmark,
-  Bug,
   Dices,
   Download,
   Eye,
@@ -844,7 +842,7 @@ export default function App() {
               <div className="absolute right-0 top-10 z-40 w-[560px] rounded-xl border border-slate-700/90 bg-slate-900/98 p-3 shadow-2xl backdrop-blur">
                 <div className="mb-2 flex items-center justify-between text-xs">
                   <span className="font-semibold text-white">
-                    1 个木头人 → 16 个完整角色预设墙（0xsu 风格）
+                    1 个木头人 → {Math.max(0, pack.presets.length - 1)} 个完整角色预设墙
                   </span>
                   <span className="text-[11px] text-slate-400">点击即刻换装</span>
                 </div>
@@ -1144,7 +1142,7 @@ export default function App() {
                 void applyDefaultPack(true).then(() => showToast('已重置为默认角色并清除自动存档'));
               }}
               className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-              title="重置默认 0xsu 风贴纸角色资产（清除自动存档）"
+              title="重置默认超Q贴纸角色资产（清除自动存档）"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
@@ -1403,41 +1401,6 @@ export default function App() {
                 />
               ))}
             </div>
-
-            {/* Hand Color Bug Mode QA toggle */}
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
-                <Bug className="h-3.5 w-3.5 text-amber-400" />
-                <span>手部肤色通道诊断（手臂 Mask B 验证）</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1">
-                {(
-                  [
-                    ['none', '正常同步'],
-                    ['baked_wood', '原木写死坑'],
-                    ['dyed_sleeve', '袖色误染坑'],
-                  ] as const
-                ).map(([mode, label]) => (
-                  <button
-                    key={mode}
-                    onClick={() =>
-                      mutateCharacter((ch) =>
-                        ch.setHandColorBugMode(mode as HandColorBugMode),
-                      )
-                    }
-                    className={`rounded px-1.5 py-1 text-[10px] font-medium transition ${
-                      config.handColorBugMode === mode
-                        ? mode === 'none'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-amber-600 text-white'
-                        : 'bg-slate-900 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
           </section>
 
           {/* Palette & GPU LUT Preview */}
@@ -1489,7 +1452,6 @@ export default function App() {
               slotId={selectedSlotId}
               palette={selectedPalette}
               skin={selectedSkin}
-              handColorBugMode={config.handColorBugMode}
             />
           </section>
 
