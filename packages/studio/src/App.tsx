@@ -80,6 +80,7 @@ import {
   type SavedCharacterEntry,
   type StudioProjectFile,
 } from './utils/character-library.ts';
+import { exportPdkPackZip, importPdkPackZip } from './utils/pdkpack.ts';
 import { downloadEquipmentReferenceTemplate } from './utils/reference-template.ts';
 import { loadStickerHDPack } from './utils/sticker-pack-loader.ts';
 
@@ -367,6 +368,7 @@ export default function App() {
 
   const globalFileInputRef = useRef<HTMLInputElement | null>(null);
   const jsonImportInputRef = useRef<HTMLInputElement | null>(null);
+  const pdkPackInputRef = useRef<HTMLInputElement | null>(null);
   const slotAlbedoInputRef = useRef<HTMLInputElement | null>(null);
   const slotMaskInputRef = useRef<HTMLInputElement | null>(null);
   const canvasExportRef = useRef<HTMLCanvasElement | null>(null);
@@ -557,9 +559,62 @@ export default function App() {
     [pack, pushHistory, showToast],
   );
 
+  const handleExportPdkPack = useCallback(() => {
+    try {
+      const { bytes, filename, imageCount } = exportPdkPackZip(pack, images);
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      setLibraryOpen(false);
+      showToast(`已打包导出自定义资产包「${filename}」（含 ${imageCount} 张贴图、自定义色板与事件）`);
+    } catch (err) {
+      showToast(`资产包打包失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }, [pack, images, showToast]);
+
+  const handleHotLoadPdkPack = useCallback(
+    async (file: File) => {
+      try {
+        const buf = await file.arrayBuffer();
+        const loaded = await importPdkPackZip(buf);
+        pushHistory();
+        setPack(loaded.pack);
+        setImages(loaded.images);
+        setImagesVersion((v) => v + 1);
+        setLastAudit(auditAssetPack(loaded.pack, loaded.images));
+        const firstPreset = loaded.pack.presets[0];
+        if (firstPreset) {
+          const ch = new PaperDollCharacter(loaded.pack);
+          ch.applyPreset(firstPreset.id);
+          setConfig(ch.toJSON());
+          setActivePresetId(firstPreset.id);
+        } else {
+          setConfig((prev) => sanitizeCharacterConfig(prev, loaded.pack).config);
+          setActivePresetId('custom');
+        }
+        setLibraryOpen(false);
+        showToast(
+          `已热切换资产包「${loaded.pack.name}」（载入 ${loaded.imageCount} 张贴图，${loaded.pack.presets.length} 套预设）`,
+        );
+      } catch (err) {
+        showToast(`资产包热加载失败: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [pushHistory, showToast],
+  );
+
   const handleGlobalImport = useCallback(
     async (files: File[]) => {
       try {
+        const pdkZip = files.find((f) => /\.zip$/i.test(f.name));
+        if (pdkZip) {
+          await handleHotLoadPdkPack(pdkZip);
+          return;
+        }
         const res = await importBrowserFiles(files, pack, images);
         pushHistory();
         setPack(res.pack);
@@ -970,11 +1025,22 @@ export default function App() {
         ref={globalFileInputRef}
         type="file"
         multiple
-        accept=".psd,.ase,.aseprite,.png,.webp,.jpg,.jpeg"
+        accept=".psd,.ase,.aseprite,.png,.webp,.jpg,.jpeg,.zip,.pdkpack.zip"
         className="hidden"
         onChange={(e) => {
           const list = Array.from(e.target.files ?? []);
           if (list.length > 0) void handleGlobalImport(list);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={pdkPackInputRef}
+        type="file"
+        accept=".zip,.pdkpack.zip,application/zip"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleHotLoadPdkPack(file);
           e.target.value = '';
         }}
       />
@@ -1400,6 +1466,26 @@ export default function App() {
                   >
                     <Download className="h-3 w-3" />
                     项目存档
+                  </button>
+                </div>
+
+                {/* P3-4 Portable Asset Pack (.pdkpack.zip) Export & Hot-Swap */}
+                <div className="grid grid-cols-2 gap-1.5 border-t border-slate-800 pt-2">
+                  <button
+                    onClick={handleExportPdkPack}
+                    className="flex items-center justify-center gap-1 rounded border border-emerald-500/40 bg-emerald-600/15 px-2 py-1.5 text-[11px] font-medium text-emerald-200 hover:bg-emerald-600/30 transition"
+                    title="将当前整套资产包（含导入贴图、Mask、法线贴图、自定义调色板与事件）打包为 .pdkpack.zip"
+                  >
+                    <Package className="h-3 w-3" />
+                    打包资产包 (.zip)
+                  </button>
+                  <button
+                    onClick={() => pdkPackInputRef.current?.click()}
+                    className="flex items-center justify-center gap-1 rounded border border-amber-500/40 bg-amber-600/15 px-2 py-1.5 text-[11px] font-medium text-amber-200 hover:bg-amber-600/30 transition"
+                    title="导入外部 .pdkpack.zip 一键热切换整套美术画风与部件库"
+                  >
+                    <FolderUp className="h-3 w-3" />
+                    热切换资产包
                   </button>
                 </div>
               </div>

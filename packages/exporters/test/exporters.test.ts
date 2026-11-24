@@ -314,4 +314,19 @@ describe('@paperdollkit/exporters (M3 Baked Godot 4 & Cocos 3.x)', () => {
     expect(unityMeta).toContain('spriteMode: 2');
     expect(unityMeta).toContain('name: golden_knight_idle_SE_00');
   });
+
+  it('round-trips portable .pdkpack.zip archives via packZip and unpackZip', async () => {
+    const { packZip, unpackZip } = await import('../src/index.js');
+    const zipped = packZip({
+      'manifest.json': JSON.stringify({ format: 'paperdollkit-pack-v2', id: 'custom-style' }),
+      'images/sample.png': new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    });
+    const unpacked = unpackZip(zipped);
+    expect(Object.keys(unpacked).sort()).toEqual(['images/sample.png', 'manifest.json']);
+    const parsed = JSON.parse(new TextDecoder().decode(unpacked['manifest.json']!)) as {
+      format: string;
+      id: string;
+    };
+    expect(parsed).toEqual({ format: 'paperdollkit-pack-v2', id: 'custom-style' });
+  });
 });

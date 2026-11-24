@@ -1,4 +1,4 @@
-import { strToU8, zipSync, type Zippable } from 'fflate';
+import { strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 
 /**
  * Packages a flat map of relative file paths -> bytes/UTF-8 text into a ZIP archive.
@@ -16,4 +16,11 @@ export function packZip(files: Record<string, Uint8Array | string>): Uint8Array 
     }
   }
   return zipSync(zippable);
+}
+
+/**
+ * Unpacks a ZIP archive into a flat map of relative file paths -> raw Uint8Array bytes.
+ */
+export function unpackZip(zipBytes: Uint8Array): Record<string, Uint8Array> {
+  return unzipSync(zipBytes);
 }
