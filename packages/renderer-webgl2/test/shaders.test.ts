@@ -22,4 +22,13 @@ describe('@paperdollkit/renderer-webgl2 shader contract', () => {
     expect(FRAGMENT_SHADER_SRC).toContain(SHADER_UNIFORMS.TINT_COLOR);
     expect(FRAGMENT_SHADER_SRC).toContain(SHADER_UNIFORMS.OPACITY);
   });
+
+  it('supports combat VFX (hit flash, 8-neighbor outline, status filters) and 2D normal lighting', () => {
+    expect(FRAGMENT_SHADER_SRC).toContain('u_flash_amount');
+    expect(FRAGMENT_SHADER_SRC).toContain('u_flash_color');
+    expect(FRAGMENT_SHADER_SRC).toContain('u_outline_width');
+    expect(FRAGMENT_SHADER_SRC).toContain('u_outline_color');
+    expect(FRAGMENT_SHADER_SRC).toContain('u_status_mode');
+    expect(FRAGMENT_SHADER_SRC).toContain('u_normal_tex');
+  });
 });

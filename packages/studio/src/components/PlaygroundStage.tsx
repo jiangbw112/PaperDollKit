@@ -714,12 +714,19 @@ export function PlaygroundStage({
           const panXCss = p.x + actor.x * z;
           const panYCss = p.y + actor.y * z - 0.375 * canvasH * actor.scale * z;
 
+          const hitElapsed = simTimeRef.current - actor.actionStartedAtMs;
+          const hitFlash =
+            actor.config.action === 'hit' && hitElapsed >= 0 && hitElapsed < 240
+              ? Math.max(0, 1 - hitElapsed / 240)
+              : 0;
+
           renderer.render(pack, frame, images, {
             clearBeforeRender: false,
             zoom: z * actor.scale * dpr,
             panX: panXCss * dpr,
             panY: panYCss * dpr,
             debugMaskView: debugMaskRef.current,
+            vfx: hitFlash > 0.01 ? { flashAmount: hitFlash, flashColor: [1, 1, 1] } : undefined,
           });
         }
 

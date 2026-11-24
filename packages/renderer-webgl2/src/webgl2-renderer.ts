@@ -73,7 +73,23 @@ interface UniformLocations {
   lightIntensity: WebGLUniformLocation | null;
   lightAmbient: WebGLUniformLocation | null;
   flipXFs: WebGLUniformLocation | null;
+  flashAmount: WebGLUniformLocation | null;
+  flashColor: WebGLUniformLocation | null;
+  outlineWidth: WebGLUniformLocation | null;
+  outlineColor: WebGLUniformLocation | null;
+  texelSize: WebGLUniformLocation | null;
+  statusMode: WebGLUniformLocation | null;
+  statusIntensity: WebGLUniformLocation | null;
 }
+
+const STATUS_MODE_MAP: Record<string, number> = {
+  none: 0,
+  frozen: 1,
+  poison: 2,
+  burn: 3,
+  stealth: 4,
+  petrify: 5,
+};
 
 /**
  * Lightweight WebGL2 2D paper-doll renderer implementing the exact Mask + Gradient
@@ -159,6 +175,13 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       lightIntensity: gl.getUniformLocation(this.program, 'u_light_intensity'),
       lightAmbient: gl.getUniformLocation(this.program, 'u_light_ambient'),
       flipXFs: gl.getUniformLocation(this.program, 'u_flip_x_fs'),
+      flashAmount: gl.getUniformLocation(this.program, 'u_flash_amount'),
+      flashColor: gl.getUniformLocation(this.program, 'u_flash_color'),
+      outlineWidth: gl.getUniformLocation(this.program, 'u_outline_width'),
+      outlineColor: gl.getUniformLocation(this.program, 'u_outline_color'),
+      texelSize: gl.getUniformLocation(this.program, 'u_texel_size'),
+      statusMode: gl.getUniformLocation(this.program, 'u_status_mode'),
+      statusIntensity: gl.getUniformLocation(this.program, 'u_status_intensity'),
     };
   }
 
@@ -286,6 +309,17 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       gl.uniform1f(this.uniforms.lightAmbient, light.ambient ?? 0.36);
     }
 
+    const vfx = opts.vfx;
+    const fc = vfx?.flashColor ?? [1, 1, 1];
+    const oc = vfx?.outlineColor ?? [0.08, 0.08, 0.12, 1];
+    const statusMode = STATUS_MODE_MAP[vfx?.statusEffect ?? 'none'] ?? 0;
+    gl.uniform1f(this.uniforms.flashAmount, vfx?.flashAmount ?? 0);
+    gl.uniform3f(this.uniforms.flashColor, fc[0], fc[1], fc[2]);
+    gl.uniform1f(this.uniforms.outlineWidth, vfx?.outlineWidth ?? 0);
+    gl.uniform4f(this.uniforms.outlineColor, oc[0], oc[1], oc[2], oc[3]);
+    gl.uniform1i(this.uniforms.statusMode, statusMode);
+    gl.uniform1f(this.uniforms.statusIntensity, statusMode > 0 ? (vfx?.statusIntensity ?? 1.0) : 0);
+
     for (const layer of frame.layers) {
       const albedoSrc = images.get(layer.frame.imageId);
       if (!albedoSrc) continue;
@@ -309,6 +343,7 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       gl.uniform2f(this.uniforms.pivot, pivot.x, pivot.y);
       gl.uniform1f(this.uniforms.flipX, layer.flipX ? 1 : 0);
       gl.uniform1f(this.uniforms.flipXFs, layer.flipX ? 1 : 0);
+      gl.uniform2f(this.uniforms.texelSize, 1 / albedoSrc.width, 1 / albedoSrc.height);
       gl.uniform4f(
         this.uniforms.uvRect,
         sourceRect.x / albedoSrc.width,

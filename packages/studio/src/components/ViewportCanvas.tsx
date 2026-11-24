@@ -6,6 +6,7 @@ import type {
 import type { ImportedImage } from '@paperdollkit/importers';
 import {
   createPaperDollRenderer,
+  type CombatVfxOptions,
   type PaperDollRenderer,
   type PointLight2DOptions,
 } from '@paperdollkit/renderer-webgl2';
@@ -25,6 +26,7 @@ interface ViewportCanvasProps {
   showGizmos: boolean;
   light2D?: PointLight2DOptions;
   onMoveLight2D?: (x: number, y: number) => void;
+  vfx?: CombatVfxOptions;
   zoom: number;
   onZoomChange: (zoom: number) => void;
   onBackendReady: (backend: 'webgl2' | 'canvas2d') => void;
@@ -44,6 +46,7 @@ export function ViewportCanvas({
   showGizmos,
   light2D,
   onMoveLight2D,
+  vfx,
   zoom,
   onZoomChange,
   onBackendReady,
@@ -122,8 +125,9 @@ export function ViewportCanvas({
       debugMaskView,
       highlightSlotId: showGizmos ? selectedSlotId : null,
       light2D,
+      vfx,
     });
-  }, [pack, frame, images, size, zoom, pan, debugMaskView, showGizmos, selectedSlotId, light2D]);
+  }, [pack, frame, images, size, zoom, pan, debugMaskView, showGizmos, selectedSlotId, light2D, vfx]);
 
   // Convert character-canvas coordinate (worldX, worldY) -> viewport CSS pixels
   const toScreen = (wx: number, wy: number) => ({

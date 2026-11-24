@@ -73,11 +73,39 @@ uniform vec3 u_light_color;
 uniform float u_light_intensity;
 uniform float u_light_ambient;
 uniform float u_flip_x_fs;
+uniform float u_flash_amount;
+uniform vec3 u_flash_color;
+uniform float u_outline_width;
+uniform vec4 u_outline_color;
+uniform vec2 u_texel_size;
+uniform int u_status_mode;     // 0=none, 1=frozen, 2=poison, 3=burn, 4=stealth, 5=petrify
+uniform float u_status_intensity;
 
 out vec4 outColor;
 
 void main() {
   vec4 albedo = texture(u_albedo_tex, v_uv);
+
+  // Optional 8-neighbor outer outline on transparent border pixels (1:1 with Godot 4 & Cocos 3)
+  if (u_outline_width > 0.01 && albedo.a < 0.1) {
+    vec2 px = u_texel_size * u_outline_width;
+    float na = 0.0;
+    na = max(na, texture(u_albedo_tex, v_uv + vec2( px.x,  0.0)).a);
+    na = max(na, texture(u_albedo_tex, v_uv + vec2(-px.x,  0.0)).a);
+    na = max(na, texture(u_albedo_tex, v_uv + vec2( 0.0,  px.y)).a);
+    na = max(na, texture(u_albedo_tex, v_uv + vec2( 0.0, -px.y)).a);
+    na = max(na, texture(u_albedo_tex, v_uv + vec2( px.x,  px.y)).a);
+    na = max(na, texture(u_albedo_tex, v_uv + vec2(-px.x,  px.y)).a);
+    na = max(na, texture(u_albedo_tex, v_uv + vec2( px.x, -px.y)).a);
+    na = max(na, texture(u_albedo_tex, v_uv + vec2(-px.x, -px.y)).a);
+    if (na > 0.25) {
+      vec3 outRgb = mix(u_outline_color.rgb, u_flash_color, u_flash_amount);
+      float outAlpha = u_outline_color.a * u_opacity * (u_status_mode == 4 ? mix(1.0, 0.42, u_status_intensity) : 1.0);
+      outColor = vec4(outRgb, outAlpha);
+      return;
+    }
+  }
+
   if (albedo.a <= 0.004) discard;
 
   vec4 mask = texture(u_mask_tex, v_uv);
@@ -129,10 +157,41 @@ void main() {
     finalRgb = finalRgb * lit + u_light_color * (spec * u_light_intensity * atten);
   }
 
+  float finalAlpha = albedo.a * u_opacity;
+
+  // Combat status effect filters
+  if (u_status_mode > 0 && u_status_intensity > 0.001) {
+    float g = dot(finalRgb, vec3(0.299, 0.587, 0.114));
+    vec3 fx = finalRgb;
+    if (u_status_mode == 1) {
+      // Frozen: crisp glacier cyan-blue tint + frost lift
+      fx = mix(vec3(g * 0.55, g * 0.92, min(1.0, g * 1.25 + 0.14)), vec3(0.55, 0.92, 1.0), 0.22);
+    } else if (u_status_mode == 2) {
+      // Poison: toxic emerald-chartreuse tint
+      fx = vec3(finalRgb.r * 0.62 + g * 0.15, min(1.0, finalRgb.g * 1.12 + 0.12), finalRgb.b * 0.68 + 0.08);
+    } else if (u_status_mode == 3) {
+      // Burn: warm ember orange-crimson boost
+      fx = vec3(min(1.0, finalRgb.r * 1.28 + 0.16), min(1.0, finalRgb.g * 0.88 + 0.06), finalRgb.b * 0.52);
+    } else if (u_status_mode == 4) {
+      // Stealth: cool shadow ghost translucency
+      fx = mix(finalRgb, vec3(g * 0.55, g * 0.72, g * 1.05), 0.65);
+      finalAlpha *= mix(1.0, 0.42, u_status_intensity);
+    } else if (u_status_mode == 5) {
+      // Petrify: stone slate grayscale with contrast
+      float stone = clamp((g - 0.5) * 1.15 + 0.5, 0.0, 1.0);
+      fx = vec3(stone * 0.92, stone * 0.94, stone * 0.98);
+    }
+    finalRgb = mix(finalRgb, fx, u_status_intensity);
+  }
+
+  if (u_flash_amount > 0.001) {
+    finalRgb = mix(finalRgb, u_flash_color, clamp(u_flash_amount, 0.0, 1.0));
+  }
+
   if (u_highlight > 0.0) {
     finalRgb = mix(finalRgb, vec3(0.45, 0.85, 1.0), u_highlight * 0.35);
   }
 
-  outColor = vec4(finalRgb, albedo.a * u_opacity);
+  outColor = vec4(finalRgb, finalAlpha);
 }
 `;

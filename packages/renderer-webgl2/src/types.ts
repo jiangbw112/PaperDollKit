@@ -25,6 +25,23 @@ export interface PointLight2DOptions {
   ambient?: number;
 }
 
+export type StatusEffectPreset = 'none' | 'frozen' | 'poison' | 'burn' | 'stealth' | 'petrify';
+
+export interface CombatVfxOptions {
+  /** Hit-flash blend amount in [0..1] (default 0). */
+  flashAmount?: number;
+  /** Normalized RGB hit-flash color (default [1, 1, 1]). */
+  flashColor?: readonly [number, number, number];
+  /** 8-neighbor outer outline width in texels (0 = disabled). */
+  outlineWidth?: number;
+  /** Normalized RGBA outer outline color (default [0.08, 0.08, 0.12, 1]). */
+  outlineColor?: readonly [number, number, number, number];
+  /** Combat status filter preset (frozen / poison / burn / stealth / petrify). */
+  statusEffect?: StatusEffectPreset;
+  /** Status filter blend intensity in [0..1] (default 1.0 when active). */
+  statusIntensity?: number;
+}
+
 export interface RenderFrameOptions {
   /** Clear color RGBA normalized [0..1] (default transparent [0,0,0,0]). */
   clearColor?: readonly [number, number, number, number];
@@ -42,6 +59,8 @@ export interface RenderFrameOptions {
   highlightSlotId?: SlotId | null;
   /** Optional real-time 2D dynamic point light preview using sprite normal maps. */
   light2D?: PointLight2DOptions;
+  /** Optional real-time combat VFX (hit flash, 8-neighbor outline, status filters). */
+  vfx?: CombatVfxOptions;
 }
 
 export interface PaperDollRenderer {

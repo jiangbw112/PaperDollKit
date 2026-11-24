@@ -18,7 +18,11 @@ import {
   type ImportReport,
   type ImportedImage,
 } from '@paperdollkit/importers';
-import type { PointLight2DOptions } from '@paperdollkit/renderer-webgl2';
+import type {
+  CombatVfxOptions,
+  PointLight2DOptions,
+  StatusEffectPreset,
+} from '@paperdollkit/renderer-webgl2';
 import {
   Bookmark,
   Dices,
@@ -48,6 +52,7 @@ import {
   Upload,
   Users,
   Wand2,
+  Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExportModal } from './components/ExportModal.tsx';
@@ -696,6 +701,53 @@ export default function App() {
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [paletteModalOpen, setPaletteModalOpen] = useState(false);
   const [stripSlicerOpen, setStripSlicerOpen] = useState(false);
+
+  // P3-3 Combat Status VFX Preview (1:1 parity with Godot 4 & Cocos 3 shaders)
+  const [vfxFlashAmount, setVfxFlashAmount] = useState(0);
+  const [vfxFlashHex, setVfxFlashHex] = useState('#ffffff');
+  const [vfxOutlineWidth, setVfxOutlineWidth] = useState(0);
+  const [vfxOutlineHex, setVfxOutlineHex] = useState('#38bdf8');
+  const [vfxStatus, setVfxStatus] = useState<StatusEffectPreset>('none');
+  const flashRafRef = useRef<number>(0);
+
+  const triggerHitFlash = useCallback((hex?: string) => {
+    if (hex) setVfxFlashHex(hex);
+    cancelAnimationFrame(flashRafRef.current);
+    const start = performance.now();
+    const duration = 240;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      setVfxFlashAmount(Number((1 - t * t).toFixed(3)));
+      if (t < 1) {
+        flashRafRef.current = requestAnimationFrame(step);
+      } else {
+        setVfxFlashAmount(0);
+      }
+    };
+    setVfxFlashAmount(1);
+    flashRafRef.current = requestAnimationFrame(step);
+  }, []);
+
+  useEffect(() => () => cancelAnimationFrame(flashRafRef.current), []);
+
+  const combatVfx = useMemo<CombatVfxOptions>(() => {
+    const parseHex = (h: string): [number, number, number] => {
+      const clean = h.replace('#', '');
+      const r = parseInt(clean.slice(0, 2), 16) || 0;
+      const g = parseInt(clean.slice(2, 4), 16) || 0;
+      const b = parseInt(clean.slice(4, 6), 16) || 0;
+      return [r / 255, g / 255, b / 255];
+    };
+    const [or, og, ob] = parseHex(vfxOutlineHex);
+    return {
+      flashAmount: vfxFlashAmount,
+      flashColor: parseHex(vfxFlashHex),
+      outlineWidth: vfxOutlineWidth,
+      outlineColor: [or, og, ob, 1],
+      statusEffect: vfxStatus,
+      statusIntensity: vfxStatus === 'none' ? 0 : 1,
+    };
+  }, [vfxFlashAmount, vfxFlashHex, vfxOutlineWidth, vfxOutlineHex, vfxStatus]);
 
   /** Generates tangent-space Sobel 2D normal maps for all equipped parts (or the selected slot). */
   const generateNormalsForEquipped = useCallback(
@@ -1461,6 +1513,7 @@ export default function App() {
             showGizmos={showGizmos}
             light2D={light2D}
             onMoveLight2D={(x, y) => setLight2D((prev) => ({ ...prev, x, y }))}
+            vfx={combatVfx}
             zoom={zoom}
             onZoomChange={setZoom}
             onBackendReady={setBackend}
@@ -1803,6 +1856,100 @@ export default function App() {
               palette={selectedPalette}
               skin={selectedSkin}
             />
+          </section>
+
+          {/* P3-3 Combat Status VFX Preview (1:1 parity with Godot 4 / Cocos 3 shaders) */}
+          <section className="space-y-2 border-t border-slate-800/80 pt-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
+              <span className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-amber-400" />
+                战斗状态 VFX 预览
+              </span>
+              {(vfxStatus !== 'none' || vfxOutlineWidth > 0) && (
+                <button
+                  onClick={() => {
+                    setVfxStatus('none');
+                    setVfxOutlineWidth(0);
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-white transition"
+                >
+                  重置
+                </button>
+              )}
+            </div>
+
+            {/* One-Click Hit Flash Triggers */}
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                onClick={() => triggerHitFlash('#ffffff')}
+                className="rounded border border-slate-700 bg-slate-800/90 px-2 py-1 text-[11px] font-medium text-white hover:bg-slate-700 transition"
+                title="触发 240ms 受击闪白脉冲（与 Godot/Cocos u_flash_amount 1:1）"
+              >
+                受击闪白
+              </button>
+              <button
+                onClick={() => triggerHitFlash('#facc15')}
+                className="rounded border border-amber-500/40 bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-500/30 transition"
+                title="触发暴击金光脉冲"
+              >
+                暴击金光
+              </button>
+              <button
+                onClick={() => triggerHitFlash('#f43f5e')}
+                className="rounded border border-rose-500/40 bg-rose-500/15 px-2 py-1 text-[11px] font-medium text-rose-200 hover:bg-rose-500/30 transition"
+                title="触发重击红闪脉冲"
+              >
+                重击红闪
+              </button>
+            </div>
+
+            {/* Combat Status Effect Presets */}
+            <div className="grid grid-cols-3 gap-1 text-[11px]">
+              {(
+                [
+                  ['none', '正常'],
+                  ['frozen', '冰冻'],
+                  ['poison', '中毒'],
+                  ['burn', '灼烧'],
+                  ['stealth', '隐身'],
+                  ['petrify', '石化'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setVfxStatus(id)}
+                  className={`rounded border px-2 py-1 font-medium transition ${
+                    vfxStatus === id
+                      ? 'border-sky-400 bg-sky-500/20 text-sky-200'
+                      : 'border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* 8-Neighbor Outer Outline Slider + Color */}
+            <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-1.5 text-[11px]">
+              <span className="text-slate-400 shrink-0">8向描边</span>
+              <input
+                type="range"
+                min={0}
+                max={4}
+                step={0.5}
+                value={vfxOutlineWidth}
+                onChange={(e) => setVfxOutlineWidth(Number(e.target.value))}
+                className="flex-1 accent-sky-500"
+              />
+              <span className="w-7 text-right font-mono text-slate-300">{vfxOutlineWidth}</span>
+              <input
+                type="color"
+                value={vfxOutlineHex}
+                onChange={(e) => setVfxOutlineHex(e.target.value)}
+                title="描边颜色"
+                className="h-5 w-5 cursor-pointer rounded border border-slate-700 bg-transparent"
+              />
+            </div>
           </section>
 
           {/* Selected Slot Direct PNG/Mask Replacement & Offset Inspector */}
