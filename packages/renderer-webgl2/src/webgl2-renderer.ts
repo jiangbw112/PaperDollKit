@@ -61,11 +61,18 @@ interface UniformLocations {
   albedoTex: WebGLUniformLocation | null;
   maskTex: WebGLUniformLocation | null;
   lutTex: WebGLUniformLocation | null;
+  normalTex: WebGLUniformLocation | null;
   recolorMode: WebGLUniformLocation | null;
   tintColor: WebGLUniformLocation | null;
   opacity: WebGLUniformLocation | null;
   debugMask: WebGLUniformLocation | null;
   highlight: WebGLUniformLocation | null;
+  lightEnabled: WebGLUniformLocation | null;
+  lightPos: WebGLUniformLocation | null;
+  lightColor: WebGLUniformLocation | null;
+  lightIntensity: WebGLUniformLocation | null;
+  lightAmbient: WebGLUniformLocation | null;
+  flipXFs: WebGLUniformLocation | null;
 }
 
 /**
@@ -79,6 +86,7 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
   private readonly vao: WebGLVertexArrayObject;
   private readonly vbo: WebGLBuffer;
   private readonly emptyMaskTex: WebGLTexture;
+  private readonly flatNormalTex: WebGLTexture;
   private readonly uniforms: UniformLocations;
   private readonly imageTextures = new Map<string, { tex: WebGLTexture; src: RenderImageSource }>();
   private readonly lutTextures = new Map<string, WebGLTexture>();
@@ -121,6 +129,8 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
 
     // 1x1 transparent dummy mask when a layer does not provide a semantic mask
     this.emptyMaskTex = this.uploadRgbaTexture(1, 1, new Uint8Array([0, 0, 0, 0]), gl.NEAREST);
+    // 1x1 flat tangent-space normal (0, 0, 1) -> (128, 128, 255, 255)
+    this.flatNormalTex = this.uploadRgbaTexture(1, 1, new Uint8Array([128, 128, 255, 255]), gl.NEAREST);
 
     this.uniforms = {
       origSize: gl.getUniformLocation(this.program, 'u_orig_size'),
@@ -137,11 +147,18 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       albedoTex: gl.getUniformLocation(this.program, 'u_albedo_tex'),
       maskTex: gl.getUniformLocation(this.program, 'u_mask_tex'),
       lutTex: gl.getUniformLocation(this.program, 'u_lut_tex'),
+      normalTex: gl.getUniformLocation(this.program, 'u_normal_tex'),
       recolorMode: gl.getUniformLocation(this.program, 'u_recolor_mode'),
       tintColor: gl.getUniformLocation(this.program, 'u_tint_color'),
       opacity: gl.getUniformLocation(this.program, 'u_opacity'),
       debugMask: gl.getUniformLocation(this.program, 'u_debug_mask'),
       highlight: gl.getUniformLocation(this.program, 'u_highlight'),
+      lightEnabled: gl.getUniformLocation(this.program, 'u_light_enabled'),
+      lightPos: gl.getUniformLocation(this.program, 'u_light_pos'),
+      lightColor: gl.getUniformLocation(this.program, 'u_light_color'),
+      lightIntensity: gl.getUniformLocation(this.program, 'u_light_intensity'),
+      lightAmbient: gl.getUniformLocation(this.program, 'u_light_ambient'),
+      flipXFs: gl.getUniformLocation(this.program, 'u_flip_x_fs'),
     };
   }
 
@@ -255,7 +272,19 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
     gl.uniform1i(this.uniforms.albedoTex, 0);
     gl.uniform1i(this.uniforms.maskTex, 1);
     gl.uniform1i(this.uniforms.lutTex, 2);
+    gl.uniform1i(this.uniforms.normalTex, 3);
     gl.uniform1i(this.uniforms.debugMask, opts.debugMaskView ? 1 : 0);
+
+    const light = opts.light2D;
+    const lightOn = Boolean(light?.enabled);
+    gl.uniform1i(this.uniforms.lightEnabled, lightOn ? 1 : 0);
+    if (lightOn && light) {
+      const lc = light.color ?? [1.0, 0.94, 0.82];
+      gl.uniform3f(this.uniforms.lightPos, light.x, light.y, light.z ?? 76);
+      gl.uniform3f(this.uniforms.lightColor, lc[0], lc[1], lc[2]);
+      gl.uniform1f(this.uniforms.lightIntensity, light.intensity ?? 1.35);
+      gl.uniform1f(this.uniforms.lightAmbient, light.ambient ?? 0.36);
+    }
 
     for (const layer of frame.layers) {
       const albedoSrc = images.get(layer.frame.imageId);
@@ -266,6 +295,10 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       const maskTex = maskSrc
         ? this.getOrUploadImage(layer.frame.maskImageId!, maskSrc)
         : this.emptyMaskTex;
+      const normalSrc = layer.frame.normalImageId ? images.get(layer.frame.normalImageId) : undefined;
+      const normalTex = normalSrc
+        ? this.getOrUploadImage(layer.frame.normalImageId!, normalSrc)
+        : this.flatNormalTex;
       const lutTex = this.getOrBakeLUT(pack, layer);
 
       const { sourceRect, originalSize, trimOffset, pivot } = layer.frame;
@@ -275,6 +308,7 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       gl.uniform2f(this.uniforms.trimSize, sourceRect.width, sourceRect.height);
       gl.uniform2f(this.uniforms.pivot, pivot.x, pivot.y);
       gl.uniform1f(this.uniforms.flipX, layer.flipX ? 1 : 0);
+      gl.uniform1f(this.uniforms.flipXFs, layer.flipX ? 1 : 0);
       gl.uniform4f(
         this.uniforms.uvRect,
         sourceRect.x / albedoSrc.width,
@@ -314,6 +348,8 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       gl.bindTexture(gl.TEXTURE_2D, maskTex);
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, lutTex);
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, normalTex);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
@@ -364,6 +400,7 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
     this.disposed = true;
     this.invalidateAll();
     this.gl.deleteTexture(this.emptyMaskTex);
+    this.gl.deleteTexture(this.flatNormalTex);
     this.gl.deleteBuffer(this.vbo);
     this.gl.deleteVertexArray(this.vao);
     this.gl.deleteProgram(this.program);

@@ -27,8 +27,10 @@
 - **`@paperdollkit/cli`**（M5 + P2）：
   - 零浏览器依赖的无头命令行工具：`audit`（资产质检）、`export`（Mode A/B 导出）、`batch`（确定性批量生成 NPC + `index.png` 接触图）、**`mcp`（stdio JSON-RPC 2.0 MCP Server，支持 AI Agent 自然语言设计角色 `design_character` 与一键导出）**
 - **`@paperdollkit/studio`**（M2 ~ P2）：
-  - Vite + React 19 + Tailwind CSS v4 **2.5D 等距俯视纸娃娃工坊**：内置超 Q 贴纸风 **75 部件 / 21 预设墙**、等距 8 向罗盘、骨架 Gizmo、**可视化动画事件轨编辑器**、**普通 PNG 自动生成 Mask**、**AI 骨架参考底图 PNG 导出**、撤销/重做、本地角色库与 JSON 存档读写
+  - Vite + React 19 + Tailwind CSS v4 **2.5D 等距俯视纸娃娃工坊**（已配置 Vite `manualChunks` 分包与 GitHub Pages 自动部署）：内置超 Q 贴纸风 **75 部件 / 21 预设墙**、等距 8 向罗盘、骨架 Gizmo、**实时 2D 动态点光源法线预览（可拖拽光球 + 一键生成 Sobel 法线）**、**AI 自然语言一键设计角色弹窗**、**自定义 4 段 Gradient Ramp 调色板编辑器**、**序列帧 Sprite Sheet 可视化切分向导**、**可视化动画事件轨编辑器**、**普通 PNG 自动生成 Mask** 与 **AI 骨架参考底图 PNG 导出**
   - **多人同屏 Playground**：支持 **WASD/方向键实时操控 + Space/J 挥击判定与受击反应 + K 法术环特效**、Y 轴自动深度排序、自由漫游、`+25 极限压测` 与实时 FPS / 帧耗时 HUD
+- **开箱即用引擎示例（[`examples/`](./examples/README.md)）**：
+  - 提供 Godot 4.x（`examples/godot4-demo/`，含 `PointLight2D` 实时光照 + 换色 + 闪白）与 Cocos Creator 3.x（`examples/cocos3-demo/`）最小可运行 Demo 模板
 
 ## 常用命令
 

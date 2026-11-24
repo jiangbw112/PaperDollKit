@@ -7,15 +7,18 @@ import {
   type AssetAuditReport,
   type AssetPackManifest,
   type CharacterConfig,
+  type ColorPalette,
   type DirectionId,
   type SlotId,
   type Vec2,
 } from '@paperdollkit/core';
 import {
   generateAutoMaskFromImage,
+  generateAutoNormalMap,
   type ImportReport,
   type ImportedImage,
 } from '@paperdollkit/importers';
+import type { PointLight2DOptions } from '@paperdollkit/renderer-webgl2';
 import {
   Bookmark,
   Dices,
@@ -36,8 +39,10 @@ import {
   Redo2,
   RotateCcw,
   Save,
+  Scissors,
   Sliders,
   Sparkles,
+  Sun,
   Trash2,
   Undo2,
   Upload,
@@ -47,7 +52,10 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExportModal } from './components/ExportModal.tsx';
 import { LutPreviewBar } from './components/LutPreviewBar.tsx';
+import { PaletteEditorModal } from './components/PaletteEditorModal.tsx';
 import { PlaygroundStage } from './components/PlaygroundStage.tsx';
+import { PromptDesignModal } from './components/PromptDesignModal.tsx';
+import { StripSlicerModal } from './components/StripSlicerModal.tsx';
 import { ViewportCanvas } from './components/ViewportCanvas.tsx';
 import { downloadTextFile, importBrowserFiles } from './utils/browser-import.ts';
 import {
@@ -676,6 +684,130 @@ export default function App() {
     );
   }, [config.slots, selectedSlotId, pack, images, pushHistory, showToast]);
 
+  const [light2D, setLight2D] = useState<PointLight2DOptions>({
+    enabled: false,
+    x: 186,
+    y: 84,
+    z: 74,
+    color: [1.0, 0.94, 0.82],
+    intensity: 1.45,
+    ambient: 0.34,
+  });
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
+  const [paletteModalOpen, setPaletteModalOpen] = useState(false);
+  const [stripSlicerOpen, setStripSlicerOpen] = useState(false);
+
+  /** Generates tangent-space Sobel 2D normal maps for all equipped parts (or the selected slot). */
+  const generateNormalsForEquipped = useCallback(
+    (onlySelectedSlot: boolean) => {
+      const nextImages = new Map(images);
+      const nextParts = { ...pack.parts };
+      const generatedMap = new Map<string, string>();
+      let count = 0;
+
+      const targetSlots = onlySelectedSlot ? [selectedSlotId] : Object.keys(config.slots);
+      for (const sId of targetSlots) {
+        const pId = config.slots[sId];
+        if (!pId || pId === 'none') continue;
+        const slotParts = nextParts[sId] ?? [];
+        const part = slotParts.find((p) => p.id === pId);
+        if (!part) continue;
+
+        const processFrame = (f: typeof part.directions[string]['frames'][number]) => {
+          if (f.normalImageId && nextImages.has(f.normalImageId)) return f;
+          const albedo = nextImages.get(f.imageId);
+          if (!albedo) return f;
+          let normalId = generatedMap.get(f.imageId);
+          if (!normalId) {
+            const normalImg = generateAutoNormalMap(albedo, { strength: 2.6 });
+            normalId = normalImg.id;
+            nextImages.set(normalId, normalImg);
+            generatedMap.set(f.imageId, normalId);
+            count++;
+          }
+          return { ...f, normalImageId: normalId, normalRect: f.sourceRect };
+        };
+
+        const nextDirections: typeof part.directions = {};
+        for (const [dirId, visual] of Object.entries(part.directions)) {
+          nextDirections[dirId] = {
+            ...visual,
+            frames: visual.frames.map(processFrame),
+            ...(visual.actionFrames
+              ? {
+                  actionFrames: Object.fromEntries(
+                    Object.entries(visual.actionFrames).map(([actId, seq]) => [
+                      actId,
+                      seq.map(processFrame),
+                    ]),
+                  ),
+                }
+              : {}),
+          };
+        }
+
+        nextParts[sId] = slotParts.map((p) =>
+          p.id === pId ? { ...p, directions: nextDirections } : p,
+        );
+      }
+
+      if (count > 0) {
+        setImages(nextImages);
+        setImagesVersion((v) => v + 1);
+        setPack((prev) => ({ ...prev, parts: nextParts }));
+      }
+      return count;
+    },
+    [config.slots, images, pack.parts, selectedSlotId],
+  );
+
+  const handleToggleLight2D = useCallback(() => {
+    setLight2D((prev) => {
+      const nextEnabled = !prev.enabled;
+      if (nextEnabled) {
+        const count = generateNormalsForEquipped(false);
+        showToast(
+          count > 0
+            ? `已开启 2D 点光源预览，并自动生成 ${count} 张 Sobel 法线贴图（拖动金色光球可实时观察光影）`
+            : '已开启 2D 点光源预览（拖动金色光球可实时观察法线光影）',
+        );
+      }
+      return { ...prev, enabled: nextEnabled };
+    });
+  }, [generateNormalsForEquipped, showToast]);
+
+  const handleAutoGenerateNormalMap = useCallback(() => {
+    const count = generateNormalsForEquipped(true);
+    setLight2D((prev) => ({ ...prev, enabled: true }));
+    showToast(
+      count > 0
+        ? `已为当前槽位生成 2D Sobel 法线贴图并开启点光源预览`
+        : '当前槽位已有法线贴图，已开启 2D 点光源预览',
+    );
+  }, [generateNormalsForEquipped, showToast]);
+
+  const handleSaveCustomPalette = useCallback(
+    (palette: ColorPalette) => {
+      pushHistory();
+      setPack((prev) => ({
+        ...prev,
+        palettes: {
+          ...prev.palettes,
+          [palette.id]: palette,
+        },
+      }));
+      setConfig((prev) => ({
+        ...prev,
+        palettes: {
+          ...prev.palettes,
+          [selectedSlotId]: palette.id,
+        },
+      }));
+      showToast(`已创建并应用自定义调色板「${palette.name}」（Mode B 导出自动烘焙 256×4 LUT）`);
+    },
+    [pushHistory, selectedSlotId, showToast],
+  );
+
   const handleDragSlotOffset = useCallback(
     (slotId: SlotId, dx: number, dy: number) => {
       pushHistory(`offset:${slotId}`);
@@ -942,6 +1074,28 @@ export default function App() {
               </div>
             )}
           </div>
+
+          <button
+            onClick={() => setPromptModalOpen(true)}
+            className="flex items-center gap-1 rounded border border-violet-500/45 bg-violet-600/20 px-2.5 py-1 text-xs font-medium text-violet-200 hover:bg-violet-600/35 transition"
+            title="输入中英文自然语言描述一键生成角色（共享 MCP AI 设计引擎）"
+          >
+            <Wand2 className="h-3.5 w-3.5 text-violet-300" />
+            AI 描述
+          </button>
+
+          <button
+            onClick={handleToggleLight2D}
+            className={`flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium border transition ${
+              light2D.enabled
+                ? 'border-amber-400/70 bg-amber-500/25 text-amber-200 shadow-sm'
+                : 'border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white'
+            }`}
+            title="开启实时 2D 动态点光源预览（自动为装备生成 Sobel 法线贴图，拖动光球观察光影）"
+          >
+            <Sun className="h-3.5 w-3.5" />
+            2D 光照
+          </button>
 
           <button
             onClick={() => setDebugMaskView((v) => !v)}
@@ -1305,6 +1459,8 @@ export default function App() {
             onDropFiles={(files) => void handleGlobalImport(files)}
             debugMaskView={debugMaskView}
             showGizmos={showGizmos}
+            light2D={light2D}
+            onMoveLight2D={(x, y) => setLight2D((prev) => ({ ...prev, x, y }))}
             zoom={zoom}
             onZoomChange={setZoom}
             onBackendReady={setBackend}
@@ -1594,14 +1750,24 @@ export default function App() {
                 <Palette className="h-3.5 w-3.5 text-sky-400" />
                 色板：{selectedSlotDef.name}
               </span>
-              <button
-                onClick={() =>
-                  mutateCharacter((ch) => ch.setAllClothingPalette(selectedPalette.id))
-                }
-                className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-sky-300 hover:bg-slate-700"
-              >
-                应用到整套服装
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPaletteModalOpen(true)}
+                  className="flex items-center gap-0.5 rounded border border-sky-500/40 bg-sky-500/15 px-1.5 py-0.5 text-[10px] text-sky-200 hover:bg-sky-500/30 transition"
+                  title="创建自定义 4 段 Gradient Ramp 调色板"
+                >
+                  <Plus className="h-2.5 w-2.5" />
+                  自定义
+                </button>
+                <button
+                  onClick={() =>
+                    mutateCharacter((ch) => ch.setAllClothingPalette(selectedPalette.id))
+                  }
+                  className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-sky-300 hover:bg-slate-700"
+                >
+                  应用到整套
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-5 gap-1.5">
@@ -1684,6 +1850,25 @@ export default function App() {
               导出骨架参考底图 PNG (AI/手绘)
             </button>
 
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={handleAutoGenerateNormalMap}
+                className="flex items-center justify-center gap-1 rounded border border-amber-500/35 bg-amber-600/15 px-2 py-1.5 text-[11px] font-medium text-amber-200 hover:bg-amber-600/30 transition"
+                title="基于 Sobel 亮度梯度为当前槽位一键生成 2D 法线贴图并开启点光源预览"
+              >
+                <Sun className="h-3 w-3 text-amber-300" />
+                生成 2D 法线
+              </button>
+              <button
+                onClick={() => setStripSlicerOpen(true)}
+                className="flex items-center justify-center gap-1 rounded border border-sky-500/35 bg-sky-600/15 px-2 py-1.5 text-[11px] font-medium text-sky-200 hover:bg-sky-600/30 transition"
+                title="导入横条或网格序列帧精灵表 PNG，可视化切分并绑定到动画序列"
+              >
+                <Scissors className="h-3 w-3 text-sky-300" />
+                切分序列帧
+              </button>
+            </div>
+
             <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px]">
               <label className="flex items-center justify-between gap-2">
                 <span className="text-slate-400">Offset X</span>
@@ -1764,6 +1949,47 @@ export default function App() {
         pack={pack}
         config={config}
         images={images}
+      />
+
+      <PromptDesignModal
+        open={promptModalOpen}
+        onClose={() => setPromptModalOpen(false)}
+        pack={pack}
+        onApplyConfig={(nextCfg, summary) => {
+          pushHistory();
+          setConfig(nextCfg);
+          setActivePresetId('custom');
+          showToast(summary);
+        }}
+      />
+
+      <PaletteEditorModal
+        open={paletteModalOpen}
+        onClose={() => setPaletteModalOpen(false)}
+        initialPalette={selectedPalette}
+        onSavePalette={handleSaveCustomPalette}
+      />
+
+      <StripSlicerModal
+        open={stripSlicerOpen}
+        onClose={() => setStripSlicerOpen(false)}
+        pack={pack}
+        images={images}
+        defaultSlotId={selectedSlotId}
+        defaultDirection={config.direction}
+        onImportComplete={(res, partId, slotId) => {
+          pushHistory();
+          setPack(res.pack);
+          setImages(res.images);
+          setImagesVersion((v) => v + 1);
+          setLastReport(res.report);
+          setLastAudit(auditAssetPack(res.pack, res.images));
+          setConfig((prev) => ({
+            ...prev,
+            slots: { ...prev.slots, [slotId]: partId },
+          }));
+          showToast(`已切分并导入 ${res.report.importedImages} 帧序列到 ${slotId}/${partId}`);
+        }}
       />
     </div>
   );

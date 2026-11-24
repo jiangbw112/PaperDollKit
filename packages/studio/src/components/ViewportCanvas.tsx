@@ -7,6 +7,7 @@ import type { ImportedImage } from '@paperdollkit/importers';
 import {
   createPaperDollRenderer,
   type PaperDollRenderer,
+  type PointLight2DOptions,
 } from '@paperdollkit/renderer-webgl2';
 import { Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -22,6 +23,8 @@ interface ViewportCanvasProps {
   onDropFiles: (files: File[]) => void;
   debugMaskView: boolean;
   showGizmos: boolean;
+  light2D?: PointLight2DOptions;
+  onMoveLight2D?: (x: number, y: number) => void;
   zoom: number;
   onZoomChange: (zoom: number) => void;
   onBackendReady: (backend: 'webgl2' | 'canvas2d') => void;
@@ -39,6 +42,8 @@ export function ViewportCanvas({
   onDropFiles,
   debugMaskView,
   showGizmos,
+  light2D,
+  onMoveLight2D,
   zoom,
   onZoomChange,
   onBackendReady,
@@ -55,6 +60,7 @@ export function ViewportCanvas({
   const dragStateRef = useRef<
     | { mode: 'pan'; startX: number; startY: number; origPanX: number; origPanY: number }
     | { mode: 'gizmo'; slotId: SlotId; lastX: number; lastY: number }
+    | { mode: 'light'; lastX: number; lastY: number; wx: number; wy: number }
     | null
   >(null);
 
@@ -115,8 +121,9 @@ export function ViewportCanvas({
       panY: pan.y * dpr,
       debugMaskView,
       highlightSlotId: showGizmos ? selectedSlotId : null,
+      light2D,
     });
-  }, [pack, frame, images, size, zoom, pan, debugMaskView, showGizmos, selectedSlotId]);
+  }, [pack, frame, images, size, zoom, pan, debugMaskView, showGizmos, selectedSlotId, light2D]);
 
   // Convert character-canvas coordinate (worldX, worldY) -> viewport CSS pixels
   const toScreen = (wx: number, wy: number) => ({
@@ -161,6 +168,14 @@ export function ViewportCanvas({
       st.lastX = e.clientX;
       st.lastY = e.clientY;
       onDragSlotOffset(st.slotId, dx, dy);
+    } else if (st.mode === 'light') {
+      const dx = (e.clientX - st.lastX) / zoom;
+      const dy = (e.clientY - st.lastY) / zoom;
+      st.lastX = e.clientX;
+      st.lastY = e.clientY;
+      st.wx += dx;
+      st.wy += dy;
+      onMoveLight2D?.(Math.round(st.wx), Math.round(st.wy));
     }
   };
 
@@ -314,6 +329,55 @@ export function ViewportCanvas({
           })}
         </svg>
       )}
+
+      {/* Draggable 2D Point Light Handle */}
+      {light2D?.enabled && (() => {
+        const lp = toScreen(light2D.x, light2D.y);
+        const rgb = light2D.color ?? [1, 0.94, 0.82];
+        const cssRgb = `rgb(${Math.round(rgb[0] * 255)}, ${Math.round(rgb[1] * 255)}, ${Math.round(rgb[2] * 255)})`;
+        return (
+          <svg
+            className="absolute inset-0 h-full w-full pointer-events-none"
+            width={size.width}
+            height={size.height}
+          >
+            <g
+              className="pointer-events-auto cursor-move"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                dragStateRef.current = {
+                  mode: 'light',
+                  lastX: e.clientX,
+                  lastY: e.clientY,
+                  wx: light2D.x,
+                  wy: light2D.y,
+                };
+                containerRef.current?.setPointerCapture(e.pointerId);
+              }}
+            >
+              <circle cx={lp.x} cy={lp.y} r={22} fill={cssRgb} opacity={0.18} />
+              <circle
+                cx={lp.x}
+                cy={lp.y}
+                r={10}
+                fill={cssRgb}
+                stroke="#ffffff"
+                strokeWidth={2}
+              />
+              <text
+                x={lp.x + 15}
+                y={lp.y + 4}
+                fill="#fef08a"
+                fontSize="11"
+                fontFamily="ui-monospace, monospace"
+                className="select-none"
+              >
+                2D Light ({Math.round(light2D.x)}, {Math.round(light2D.y)})
+              </text>
+            </g>
+          </svg>
+        );
+      })()}
 
       {/* Viewport HUD hints */}
       <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-2 text-[11px] text-slate-400">

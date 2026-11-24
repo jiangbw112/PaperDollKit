@@ -10,6 +10,21 @@ export interface ImageLookup {
   get(id: string): RenderImageSource | undefined;
 }
 
+export interface PointLight2DOptions {
+  enabled: boolean;
+  /** Light position in character canvas coordinates (e.g. 0..256). */
+  x: number;
+  y: number;
+  /** Light elevation above the 2D sprite plane in canvas pixels (default 76). */
+  z?: number;
+  /** Normalized RGB light tint (default [1.0, 0.94, 0.82]). */
+  color?: readonly [number, number, number];
+  /** Diffuse intensity multiplier (default 1.35). */
+  intensity?: number;
+  /** Ambient floor illumination (default 0.36). */
+  ambient?: number;
+}
+
 export interface RenderFrameOptions {
   /** Clear color RGBA normalized [0..1] (default transparent [0,0,0,0]). */
   clearColor?: readonly [number, number, number, number];
@@ -25,6 +40,8 @@ export interface RenderFrameOptions {
   debugMaskView?: boolean;
   /** Optional slotId to softly highlight in the viewport. */
   highlightSlotId?: SlotId | null;
+  /** Optional real-time 2D dynamic point light preview using sprite normal maps. */
+  light2D?: PointLight2DOptions;
 }
 
 export interface PaperDollRenderer {

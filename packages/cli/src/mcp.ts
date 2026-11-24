@@ -1,9 +1,9 @@
 import * as readline from 'node:readline';
 import {
+  designCharacterFromPrompt,
   generateSeededCharacter,
   type AssetPackManifest,
   type CharacterArchetypeId,
-  type CharacterConfig,
   type DirectionId,
 } from '@paperdollkit/core';
 import { createDemoHDPackWithImages } from '@paperdollkit/importers';
@@ -110,150 +110,7 @@ const MCP_TOOLS = [
   },
 ];
 
-/**
- * Offline natural-language parser mapping Chinese/English character prompts
- * onto archetype, palette harmony, skin tone, and slot part overrides.
- */
-export function designCharacterFromPrompt(
-  pack: AssetPackManifest,
-  prompt: string,
-  seed?: string,
-): {
-  config: CharacterConfig;
-  archetype: CharacterArchetypeId;
-  matchedTraits: string[];
-} {
-  const lower = prompt.toLowerCase();
-  const matchedTraits: string[] = [];
-
-  // 1. Detect archetype
-  let archetype: CharacterArchetypeId = 'any';
-  if (/法师|巫师|魔导|术士|mage|wizard|sorcerer|arcane/.test(lower)) {
-    archetype = 'mage';
-    matchedTraits.push('archetype:mage');
-  } else if (/骑士|圣骑|战士|重甲|护卫|knight|paladin|warrior|guard/.test(lower)) {
-    archetype = 'knight';
-    matchedTraits.push('archetype:knight');
-  } else if (/游侠|弓箭|猎人|射手|ranger|archer|hunter/.test(lower)) {
-    archetype = 'ranger';
-    matchedTraits.push('archetype:ranger');
-  } else if (/刺客|盗贼|忍者|潜行|rogue|assassin|thief|ninja/.test(lower)) {
-    archetype = 'rogue';
-    matchedTraits.push('archetype:rogue');
-  } else if (/贵族|国王|女王|王子|公主|领主|noble|royal|king|queen|lord/.test(lower)) {
-    archetype = 'noble';
-    matchedTraits.push('archetype:noble');
-  } else if (/村民|平民|旅人|冒险|学者|civilian|villager|traveler/.test(lower)) {
-    archetype = 'civilian';
-    matchedTraits.push('archetype:civilian');
-  }
-
-  const effectiveSeed = seed || `prompt:${prompt.trim()}`;
-  const generated = generateSeededCharacter(pack, {
-    seed: effectiveSeed,
-    archetype,
-    direction: 'SE',
-    action: 'idle',
-  });
-  const config: CharacterConfig = {
-    ...generated.config,
-    slots: { ...generated.config.slots },
-    palettes: { ...generated.config.palettes },
-  };
-
-  // 2. Detect color palette keywords
-  const paletteIds = Object.keys(pack.palettes);
-  const pickPalette = (patterns: RegExp[]): string | undefined => {
-    for (const pat of patterns) {
-      const found = paletteIds.find((id) => pat.test(id.toLowerCase()));
-      if (found) return found;
-    }
-    return undefined;
-  };
-
-  let primaryPalette: string | undefined;
-  if (/红|绯红|赤|烈焰|火|crimson|red|ruby|flame/.test(lower)) {
-    primaryPalette = pickPalette([/crimson/, /red/, /ruby/]);
-  } else if (/蓝|海蓝|冰|钴|cobalt|blue|ice|sapphire/.test(lower)) {
-    primaryPalette = pickPalette([/cobalt/, /blue/, /navy/]);
-  } else if (/绿|翡翠|森林|emerald|green|forest/.test(lower)) {
-    primaryPalette = pickPalette([/emerald/, /green/, /forest/]);
-  } else if (/金|黄|圣光|太阳|gold|sun|amber/.test(lower)) {
-    primaryPalette = pickPalette([/gold/, /amber/, /sun/]);
-  } else if (/紫|秘法|紫罗兰|violet|purple|arcane/.test(lower)) {
-    primaryPalette = pickPalette([/violet/, /purple/, /arcane/]);
-  } else if (/黑|玄|影|暗|obsidian|black|shadow|slate/.test(lower)) {
-    primaryPalette = pickPalette([/obsidian/, /shadow/, /slate/]);
-  } else if (/白|银|雪|silver|white|ivory/.test(lower)) {
-    primaryPalette = pickPalette([/silver/, /ivory/, /white/]);
-  }
-
-  if (primaryPalette) {
-    matchedTraits.push(`palette:${primaryPalette}`);
-    for (const slot of ['torso_top', 'back_cloak', 'helmet_hat', 'shoulder', 'front_arm', 'back_arm'] as const) {
-      config.palettes[slot] = primaryPalette;
-    }
-  }
-
-  // 3. Detect skin tone
-  if (/小麦|古铜|深色|深褐|tan|bronze|deep|warm/.test(lower)) {
-    const skin = pickPalette([/skin_tan/, /skin_warm/, /skin_deep/]);
-    if (skin) {
-      config.palettes.body_base = skin;
-      config.palettes.head_base = skin;
-      matchedTraits.push(`skin:${skin}`);
-    }
-  } else if (/白皙|雪白|fair|pale|light/.test(lower)) {
-    const skin = pickPalette([/skin_fair/, /skin_light/]);
-    if (skin) {
-      config.palettes.body_base = skin;
-      config.palettes.head_base = skin;
-      matchedTraits.push(`skin:${skin}`);
-    }
-  }
-
-  // 4. Detect weapon / cloak / hat overrides if matching parts exist
-  const findPart = (slot: keyof typeof pack.parts, pat: RegExp) =>
-    (pack.parts[slot] ?? []).find(
-      (p) => pat.test(p.id.toLowerCase()) || pat.test(p.name.toLowerCase()),
-    );
-
-  if (/法杖|魔杖|staff|wand/.test(lower)) {
-    const part = findPart('mainhand', /staff|wand|杖/);
-    if (part) {
-      config.slots.mainhand = part.id;
-      matchedTraits.push(`mainhand:${part.id}`);
-    }
-  } else if (/弓|bow/.test(lower)) {
-    const part = findPart('mainhand', /bow|弓/);
-    if (part) {
-      config.slots.mainhand = part.id;
-      matchedTraits.push(`mainhand:${part.id}`);
-    }
-  } else if (/匕首|短刀|dagger|blade/.test(lower)) {
-    const part = findPart('mainhand', /dagger|knife|匕/);
-    if (part) {
-      config.slots.mainhand = part.id;
-      matchedTraits.push(`mainhand:${part.id}`);
-    }
-  } else if (/剑|刀|sword|greatsword/.test(lower)) {
-    const part = findPart('mainhand', /sword|blade|剑/);
-    if (part) {
-      config.slots.mainhand = part.id;
-      matchedTraits.push(`mainhand:${part.id}`);
-    }
-  }
-
-  if (/披风|斗篷|cloak|cape/.test(lower)) {
-    const part = findPart('back_cloak', /cloak|cape|披风/);
-    if (part) {
-      config.slots.back_cloak = part.id;
-      matchedTraits.push(`back_cloak:${part.id}`);
-    }
-  }
-
-  return { config, archetype: generated.archetype, matchedTraits };
-}
+export { designCharacterFromPrompt } from '@paperdollkit/core';
 
 /**
  * Pure JSON-RPC 2.0 request handler for the PaperDollKit MCP server.

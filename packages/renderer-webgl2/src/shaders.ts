@@ -23,6 +23,7 @@ uniform float u_zoom;
 uniform vec4 u_uv_rect; // (u0, v0, uWidth, vHeight)
 
 out vec2 v_uv;
+out vec2 v_world_pos;
 
 void main() {
   // Position in untrimmed sprite local coordinates relative to pivot
@@ -33,6 +34,7 @@ void main() {
 
   // Transform to character canvas coordinates (Y-down)
   vec3 worldPos = u_world_mat * vec3(localPos, 1.0);
+  v_world_pos = worldPos.xy;
 
   // Center character canvas in viewport with zoom + pan
   vec2 centered = (worldPos.xy - u_canvas_size * 0.5) * u_zoom + u_viewport_size * 0.5 + u_pan;
@@ -47,21 +49,30 @@ void main() {
 
 /**
  * GLSL ES 3.00 Fragment Shader implementing the canonical PaperDollKit v2.0
- * Mask + Gradient Ramp LUT contract (1:1 parity with Godot 4 .gdshader & Cocos 3.x .effect).
+ * Mask + Gradient Ramp LUT contract (1:1 parity with Godot 4 .gdshader & Cocos 3.x .effect),
+ * plus optional real-time 2D Normal Map point-light preview.
  */
 export const FRAGMENT_SHADER_SRC = `#version 300 es
 precision highp float;
 
 in vec2 v_uv;
+in vec2 v_world_pos;
 
 uniform sampler2D u_albedo_tex;
 uniform sampler2D u_mask_tex;
 uniform sampler2D u_lut_tex;
+uniform sampler2D u_normal_tex;
 uniform int u_recolor_mode;   // 0=none, 1=mask_ramp, 2=tint
 uniform vec4 u_tint_color;
 uniform float u_opacity;
 uniform int u_debug_mask;     // 0=normal, 1=visualize semantic mask channels
 uniform float u_highlight;    // 0..1 subtle selection flash
+uniform int u_light_enabled;  // 0=off, 1=2D point light with normal map
+uniform vec3 u_light_pos;     // canvas-space (x, y, z)
+uniform vec3 u_light_color;
+uniform float u_light_intensity;
+uniform float u_light_ambient;
+uniform float u_flip_x_fs;
 
 out vec4 outColor;
 
@@ -100,6 +111,22 @@ void main() {
              + cSkin * w.b;
   } else if (u_recolor_mode == 2) {
     finalRgb = albedo.rgb * u_tint_color.rgb;
+  }
+
+  if (u_light_enabled == 1) {
+    vec3 n = normalize(texture(u_normal_tex, v_uv).rgb * 2.0 - 1.0);
+    if (u_flip_x_fs > 0.5) {
+      n.x = -n.x;
+    }
+    vec3 lightDelta = vec3(u_light_pos.x - v_world_pos.x, -(u_light_pos.y - v_world_pos.y), u_light_pos.z);
+    float dist = length(lightDelta);
+    vec3 L = lightDelta / max(dist, 0.001);
+    float atten = 1.0 / (1.0 + 0.000035 * dist * dist);
+    float ndl = max(dot(n, L), 0.0);
+    vec3 halfVec = normalize(L + vec3(0.0, 0.0, 1.0));
+    float spec = pow(max(dot(n, halfVec), 0.0), 18.0) * 0.22;
+    vec3 lit = vec3(u_light_ambient) + u_light_color * (ndl * u_light_intensity * atten);
+    finalRgb = finalRgb * lit + u_light_color * (spec * u_light_intensity * atten);
   }
 
   if (u_highlight > 0.0) {
