@@ -56,6 +56,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BatchNpcModal } from './components/BatchNpcModal.tsx';
 import { ExportModal } from './components/ExportModal.tsx';
 import { LutPreviewBar } from './components/LutPreviewBar.tsx';
 import { PaletteEditorModal } from './components/PaletteEditorModal.tsx';
@@ -725,6 +726,7 @@ export default function App() {
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [paletteModalOpen, setPaletteModalOpen] = useState(false);
   const [stripSlicerOpen, setStripSlicerOpen] = useState(false);
+  const [batchNpcOpen, setBatchNpcOpen] = useState(false);
 
   // P3-3 Combat Status VFX Preview (1:1 parity with Godot 4 & Cocos 3 shaders)
   const [vfxFlashAmount, setVfxFlashAmount] = useState(0);
@@ -1159,6 +1161,15 @@ export default function App() {
           >
             <Wand2 className="h-3.5 w-3.5 text-violet-300" />
             AI 描述
+          </button>
+
+          <button
+            onClick={() => setBatchNpcOpen(true)}
+            className="flex items-center gap-1 rounded border border-emerald-500/45 bg-emerald-600/15 px-2.5 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-600/30 transition"
+            title="浏览器内批量生成 4–24 名确定性种子 NPC 并一键打包接触图 + JSON + CREDITS"
+          >
+            <Users className="h-3.5 w-3.5 text-emerald-300" />
+            批量 NPC
           </button>
 
           <button
@@ -2304,6 +2315,20 @@ export default function App() {
           }));
           showToast(`已切分并导入 ${res.report.importedImages} 帧序列到 ${slotId}/${partId}`);
         }}
+      />
+
+      <BatchNpcModal
+        open={batchNpcOpen}
+        onClose={() => setBatchNpcOpen(false)}
+        pack={pack}
+        images={images}
+        onLoadCharacter={(nextCfg, label) => {
+          pushHistory();
+          setConfig(nextCfg);
+          setActivePresetId('custom');
+          showToast(`已载入「${label}」到编辑器`);
+        }}
+        onToast={showToast}
       />
     </div>
   );
