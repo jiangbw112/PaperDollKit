@@ -9,6 +9,7 @@ import {
   exportDualEngineModularBundle,
   exportGodot4BakedBundle,
   exportGodot4ModularBundle,
+  exportUniversalAtlasBundle,
   type BakedExportData,
   type ExportBundle,
   type FrameRasterizer,
@@ -20,7 +21,7 @@ import { Boxes, Check, Download, Film, Package, Sparkles, X } from 'lucide-react
 import { useEffect, useMemo, useState } from 'react';
 
 type ExportMode = 'baked' | 'modular';
-type ExportTarget = 'godot4' | 'cocos3' | 'dual';
+type ExportTarget = 'godot4' | 'cocos3' | 'dual' | 'universal';
 
 interface ExportModalProps {
   open: boolean;
@@ -197,9 +198,11 @@ export function ExportModal({
               ? exportGodot4BakedBundle(baked, { resBasePath: godotResPath })
               : target === 'cocos3'
                 ? exportCocos3BakedBundle(baked)
-                : exportDualEngineBakedBundle(baked, {
-                    godot4: { resBasePath: godotResPath },
-                  });
+                : target === 'universal'
+                  ? exportUniversalAtlasBundle(baked)
+                  : exportDualEngineBakedBundle(baked, {
+                      godot4: { resBasePath: godotResPath },
+                    });
 
           const pngCopy = new Uint8Array(baked.atlas.png.byteLength);
           pngCopy.set(baked.atlas.png);
@@ -327,7 +330,7 @@ export function ExportModal({
               <label className="mb-1.5 block text-xs font-semibold text-slate-300">
                 目标引擎格式
               </label>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className={exportMode === 'baked' ? 'grid grid-cols-2 gap-1.5' : 'grid grid-cols-3 gap-1.5'}>
                 {(exportMode === 'modular'
                   ? ([
                       ['godot4', 'Godot 4.x', '.gdshader + .gd'],
@@ -338,6 +341,7 @@ export function ExportModal({
                       ['godot4', 'Godot 4.x', '.tres + .tscn'],
                       ['cocos3', 'Cocos 3.x', '.plist + .anim'],
                       ['dual', '双引擎合包', 'Godot + Cocos'],
+                      ['universal', '通用图集', 'Phaser/Aseprite/Unity'],
                     ] as const)
                 ).map(([id, title, sub]) => (
                   <button

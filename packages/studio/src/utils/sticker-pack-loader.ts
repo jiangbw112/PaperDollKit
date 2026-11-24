@@ -192,6 +192,26 @@ const PRESETS_17: CharacterPreset[] = [
     { back_cape: 'scarf', back_prop: 'backpack', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'vest', belt_waist: 'leather_belt', back_arm: 'long_sleeve', face_eyes: 'dot', hair_style: 'spiky', head_hat: 'pirate_hat', front_arm: 'long_sleeve', main_hand: 'dagger', off_hand: 'lantern' },
     { back_cape: 'frost', back_prop: 'bronze', legs_bottom: 'cobalt', feet_shoes: 'bronze', torso_top: 'amber', belt_waist: 'bronze', back_arm: 'ivory', hair_style: 'bronze', head_hat: 'bronze', front_arm: 'ivory', main_hand: 'frost', off_hand: 'amber' },
   ),
+  makePreset(
+    'ronin', '17 · 浪客太刀侠', '东方剑豪', 'fair',
+    { back_cape: 'scarf', back_prop: 'banner', legs_bottom: 'robe_skirt', feet_shoes: 'sandals', torso_top: 'samurai_armor', belt_waist: 'sash', back_arm: 'long_sleeve', face_eyes: 'sharp', hair_style: 'ponytail', head_hat: 'straw_hat', front_arm: 'long_sleeve', main_hand: 'katana' },
+    { back_cape: 'crimson', back_prop: 'crimson', legs_bottom: 'obsidian', feet_shoes: 'bronze', torso_top: 'crimson', belt_waist: 'amber', back_arm: 'obsidian', hair_style: 'obsidian', head_hat: 'amber', front_arm: 'obsidian', main_hand: 'crimson' },
+  ),
+  makePreset(
+    'seraph_priest', '18 · 光环圣祭司', '神圣治愈', 'fair',
+    { back_cape: 'long_cloak', back_prop: 'wings', legs_bottom: 'robe_skirt', feet_shoes: 'sandals', torso_top: 'noble_coat', belt_waist: 'gold_belt', back_arm: 'long_sleeve', face_eyes: 'happy', hair_style: 'bob', head_hat: 'halo', front_arm: 'long_sleeve', main_hand: 'staff', off_hand: 'orb' },
+    { back_cape: 'ivory', back_prop: 'ivory', legs_bottom: 'ivory', feet_shoes: 'amber', torso_top: 'ivory', belt_waist: 'amber', back_arm: 'ivory', hair_style: 'amber', head_hat: 'amber', front_arm: 'ivory', main_hand: 'amber', off_hand: 'frost' },
+  ),
+  makePreset(
+    'demon_knight', '19 · 蝠翼重剑魔骑', '霸主重装', 'elf',
+    { back_cape: 'long_cloak', back_prop: 'demon_wings', legs_bottom: 'greaves', feet_shoes: 'sabaton', torso_top: 'plate', belt_waist: 'gold_belt', back_arm: 'armor_sleeve', face_eyes: 'visor_glow', hair_style: 'spiky', head_hat: 'viking_helm', front_arm: 'armor_sleeve', main_hand: 'greatsword' },
+    { back_cape: 'crimson', back_prop: 'obsidian', legs_bottom: 'obsidian', feet_shoes: 'obsidian', torso_top: 'obsidian', belt_waist: 'crimson', back_arm: 'obsidian', hair_style: 'ivory', head_hat: 'obsidian', front_arm: 'obsidian', main_hand: 'crimson' },
+  ),
+  makePreset(
+    'neko_alchemist', '20 · 猫耳炼金少女', '魔药工坊', 'fair',
+    { back_cape: 'short_cape', back_prop: 'backpack', legs_bottom: 'pants', feet_shoes: 'boots', torso_top: 'noble_coat', belt_waist: 'leather_belt', back_arm: 'long_sleeve', face_eyes: 'happy', hair_style: 'twintails', head_hat: 'cat_ears', front_arm: 'long_sleeve', main_hand: 'crossbow', off_hand: 'potion' },
+    { back_cape: 'sakura', back_prop: 'bronze', legs_bottom: 'obsidian', feet_shoes: 'bronze', torso_top: 'violet', belt_waist: 'amber', back_arm: 'violet', hair_style: 'sakura', head_hat: 'obsidian', front_arm: 'violet', main_hand: 'amber', off_hand: 'emerald' },
+  ),
 ];
 
 /**
@@ -282,6 +302,8 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     'torso_top:plate': ['heavy', 'armor', 'melee'],
     'torso_top:robe': ['magic', 'robe', 'arcane'],
     'torso_top:vest': ['light', 'ranged', 'stealth', 'civilian'],
+    'torso_top:samurai_armor': ['heavy', 'armor', 'melee', 'noble'],
+    'torso_top:noble_coat': ['noble', 'magic', 'light'],
     // Belt
     'belt_waist:leather_belt': ['light', 'ranged', 'civilian', 'heavy'],
     'belt_waist:sash': ['magic', 'robe', 'stealth', 'noble'],
@@ -294,6 +316,8 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     'back_prop:quiver': ['ranged', 'nature'],
     'back_prop:backpack': ['civilian', 'light'],
     'back_prop:wings': ['noble', 'magic', 'arcane'],
+    'back_prop:demon_wings': ['heavy', 'stealth', 'magic'],
+    'back_prop:banner': ['heavy', 'melee', 'noble'],
     // Arms
     'front_arm:bare': ['civilian', 'light'],
     'front_arm:long_sleeve': ['magic', 'robe', 'ranged', 'stealth', 'noble'],
@@ -306,6 +330,8 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     'face_eyes:sharp': ['melee', 'heavy', 'ranged', 'noble'],
     'face_eyes:visor_glow': ['heavy', 'magic', 'stealth'],
     'face_eyes:glasses': ['magic', 'arcane', 'civilian'],
+    'face_eyes:happy': ['civilian', 'light', 'noble', 'magic'],
+    'face_eyes:eyepatch': ['stealth', 'melee', 'ranged'],
     'face_beard:goatee': ['noble', 'civilian', 'magic'],
     'face_beard:full_beard': ['heavy', 'magic', 'civilian'],
     'face_beard:mask': ['stealth', 'agility', 'ranged'],
@@ -315,6 +341,8 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     'hair_style:long': ['magic', 'noble', 'robe'],
     'hair_style:ponytail': ['ranged', 'agility', 'light'],
     'hair_style:bun': ['noble', 'magic', 'light'],
+    'hair_style:twintails': ['magic', 'light', 'civilian'],
+    'hair_style:bob': ['noble', 'civilian', 'magic'],
     // Hats
     'head_hat:knight_helm': ['heavy', 'armor', 'melee'],
     'head_hat:wizard_hat': ['magic', 'robe', 'arcane'],
@@ -322,6 +350,11 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     'head_hat:pirate_hat': ['light', 'noble'],
     'head_hat:crown': ['noble'],
     'head_hat:bandana': ['civilian', 'melee', 'light'],
+    'head_hat:viking_helm': ['heavy', 'armor', 'melee'],
+    'head_hat:straw_hat': ['melee', 'ranged', 'stealth', 'nature'],
+    'head_hat:cat_ears': ['light', 'civilian', 'magic'],
+    'head_hat:bard_hat': ['noble', 'light', 'ranged'],
+    'head_hat:halo': ['noble', 'magic', 'arcane'],
     // Main Hand Weapons
     'main_hand:sword': ['heavy', 'melee', 'noble'],
     'main_hand:staff': ['magic', 'robe', 'arcane'],
@@ -330,11 +363,18 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     'main_hand:dagger': ['stealth', 'agility'],
     'main_hand:hammer': ['heavy', 'melee', 'civilian'],
     'main_hand:lantern': ['civilian', 'magic'],
+    'main_hand:spear': ['heavy', 'melee', 'noble'],
+    'main_hand:greatsword': ['heavy', 'melee'],
+    'main_hand:katana': ['melee', 'stealth', 'noble'],
+    'main_hand:crossbow': ['ranged', 'stealth', 'civilian'],
     // Off Hand
     'off_hand:shield': ['heavy', 'armor', 'melee'],
     'off_hand:book': ['magic', 'robe', 'arcane'],
     'off_hand:lantern': ['civilian', 'noble', 'magic'],
     'off_hand:dagger_off': ['stealth', 'agility'],
+    'off_hand:tower_shield': ['heavy', 'armor', 'melee'],
+    'off_hand:orb': ['magic', 'arcane', 'noble'],
+    'off_hand:potion': ['civilian', 'magic', 'light'],
   };
 
   const addDirPart = (
@@ -413,12 +453,14 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
   addWalkSeqPart('feet_shoes', 'sabaton', '铁甲靴', 'shoes_sabaton');
   addWalkSeqPart('feet_shoes', 'sandals', '绑带凉鞋', 'shoes_sandals');
 
-  // 5. Torso Top (4 styles)
+  // 5. Torso Top (6 styles)
   for (const [id, name] of [
     ['tunic', '布衣短衫'],
     ['plate', '板甲胸铠'],
     ['robe', '长袍外衣'],
     ['vest', '皮甲马甲'],
+    ['samurai_armor', '东方武士铠'],
+    ['noble_coat', '贵族礼服'],
   ] as const) {
     addDirPart('torso_top', id, name, 'mask_ramp', (d) => ({
       mode: 'rigged',
@@ -450,10 +492,12 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     }));
   }
 
-  // 8. Back Props (3 styles)
+  // 8. Back Props (5 styles)
   addSharedPart('back_prop', 'quiver', '箭袋', makeFrame('prop_quiver', { x: 0.5, y: 0.50 }));
   addSharedPart('back_prop', 'backpack', '行囊', makeFrame('prop_backpack', { x: 0.5, y: 0.50 }));
   addSharedPart('back_prop', 'wings', '羽翼', makeFrame('prop_wings', { x: 0.5, y: 0.50 }));
+  addSharedPart('back_prop', 'demon_wings', '恶魔蝠翼', makeFrame('prop_demon_wings', { x: 0.5, y: 0.50 }));
+  addSharedPart('back_prop', 'banner', '战阵背旗', makeFrame('prop_banner', { x: 0.5, y: 0.72 }));
 
   // 9. Arms (front & back, 3 styles each, hand palm ALWAYS on Mask B = Skin!)
   const makeArms = (slotId: 'front_arm' | 'back_arm') => {
@@ -480,12 +524,14 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     ],
   }));
 
-  // 11. Face Eyes (4 sticker styles)
+  // 11. Face Eyes (6 sticker styles)
   for (const [id, name] of [
     ['dot', '豆豆眼'],
     ['sharp', '坚毅目光'],
     ['visor_glow', '发光战瞳'],
     ['glasses', '学者眼镜'],
+    ['happy', '眯眯笑眼'],
+    ['eyepatch', '海盗独眼罩'],
   ] as const) {
     addDirPart('face_eyes', id, name, 'none', (d) => ({
       mode: 'rigged',
@@ -505,13 +551,15 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     }));
   }
 
-  // 13. Hair Style (5 styles)
+  // 13. Hair Style (7 styles)
   for (const [id, name, py] of [
     ['short', '短碎发', 0.50],
     ['spiky', '刺猬发', 0.50],
     ['long', '披肩长发', 0.50],
     ['ponytail', '高马尾', 0.50],
     ['bun', '发髻', 0.54],
+    ['twintails', '双马尾', 0.50],
+    ['bob', '齐耳波波头', 0.50],
   ] as const) {
     addDirPart('hair_style', id, name, 'mask_ramp', (d) => ({
       mode: 'rigged',
@@ -519,7 +567,7 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     }));
   }
 
-  // 14. Head Hat (6 styles with carefully tuned Q-version vertical pivots & conflict rules)
+  // 14. Head Hat (11 styles with carefully tuned Q-version vertical pivots & conflict rules)
   const hatDefs: ReadonlyArray<readonly [string, string, number, PartAsset['rules']?]> = [
     ['knight_helm', '骑士头盔', 0.54, { hidesSlots: ['hair_style'] }],
     ['wizard_hat', '尖顶法师帽', 0.84],
@@ -527,6 +575,11 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     ['pirate_hat', '海盗三角帽', 0.78],
     ['crown', '黄金王冠', 0.88],
     ['bandana', '头巾', 0.68],
+    ['viking_helm', '维京角盔', 0.60, { hidesSlots: ['hair_style'] }],
+    ['straw_hat', '东方斗笠', 0.72],
+    ['cat_ears', '猫耳发箍', 0.68],
+    ['bard_hat', '羽饰诗人帽', 0.76],
+    ['halo', '圣光光环', 0.88],
   ];
   for (const [id, name, py, rules] of hatDefs) {
     addDirPart(
@@ -542,7 +595,7 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
     );
   }
 
-  // 15. Main Hand Weapons (7 styles held on forward +X hand, pointing 斜前方!)
+  // 15. Main Hand Weapons (11 styles held on forward +X hand, pointing 斜前方!)
   addSharedPart('main_hand', 'sword', '骑士长剑', makeFrame('weapon_sword', { x: 0.35, y: 0.71 }));
   addSharedPart('main_hand', 'staff', '秘法长杖', makeFrame('weapon_staff', { x: 0.36, y: 0.69 }));
   addSharedPart('main_hand', 'bow', '猎手长弓', makeFrame('weapon_bow', { x: 0.48, y: 0.50 }), 'mask_ramp', {
@@ -552,12 +605,21 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
   addSharedPart('main_hand', 'dagger', '短刃', makeFrame('weapon_dagger', { x: 0.36, y: 0.67 }));
   addSharedPart('main_hand', 'hammer', '锻造铁锤', makeFrame('weapon_hammer', { x: 0.35, y: 0.72 }));
   addSharedPart('main_hand', 'lantern', '提灯', makeFrame('weapon_lantern', { x: 0.50, y: 0.28 }));
+  addSharedPart('main_hand', 'spear', '骑士长矛', makeFrame('weapon_spear', { x: 0.34, y: 0.73 }));
+  addSharedPart('main_hand', 'greatsword', '双手巨剑', makeFrame('weapon_greatsword', { x: 0.33, y: 0.71 }), 'mask_ramp', {
+    hidesSlots: ['off_hand'],
+  });
+  addSharedPart('main_hand', 'katana', '武士太刀', makeFrame('weapon_katana', { x: 0.33, y: 0.73 }));
+  addSharedPart('main_hand', 'crossbow', '手弩', makeFrame('weapon_crossbow', { x: 0.35, y: 0.56 }));
 
-  // 16. Off Hand Equipment (4 styles held on rear -X hand)
+  // 16. Off Hand Equipment (7 styles held on rear -X hand)
   addSharedPart('off_hand', 'shield', '纹章圆盾', makeFrame('offhand_shield', { x: 0.50, y: 0.50 }));
   addSharedPart('off_hand', 'book', '魔法典籍', makeFrame('offhand_book', { x: 0.50, y: 0.50 }));
   addSharedPart('off_hand', 'lantern', '提灯', makeFrame('offhand_lantern', { x: 0.50, y: 0.28 }));
   addSharedPart('off_hand', 'dagger_off', '副手短刃', makeFrame('offhand_dagger_off', { x: 0.64, y: 0.67 }));
+  addSharedPart('off_hand', 'tower_shield', '重装塔盾', makeFrame('offhand_tower_shield', { x: 0.50, y: 0.50 }));
+  addSharedPart('off_hand', 'orb', '悬浮法球', makeFrame('offhand_orb', { x: 0.50, y: 0.50 }));
+  addSharedPart('off_hand', 'potion', '炼金药瓶', makeFrame('offhand_potion', { x: 0.50, y: 0.52 }));
 
   const pack: AssetPackManifest = {
     schemaVersion: SCHEMA_VERSION,

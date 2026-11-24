@@ -9,4 +9,5 @@ export * from './targets/godot4.js';
 export * from './targets/godot4-modular.js';
 export * from './targets/cocos3.js';
 export * from './targets/cocos3-modular.js';
+export * from './targets/atlas-formats.js';
 export * from './targets/dual.js';

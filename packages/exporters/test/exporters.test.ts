@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { PaperDollCharacter } from '@paperdollkit/core';
 import { createDemoHDPackWithImages } from '@paperdollkit/importers';
 import { unzipSync } from 'fflate';
@@ -12,6 +13,7 @@ import {
   exportDualEngineModularBundle,
   exportGodot4BakedBundle,
   exportGodot4ModularBundle,
+  exportUniversalAtlasBundle,
   packSpritesToAtlas,
 } from '../src/index.js';
 
@@ -238,5 +240,74 @@ describe('@paperdollkit/exporters (M3 Baked Godot 4 & Cocos 3.x)', () => {
     const dualFiles = unzipSync(dualMod.zip);
     expect(dualFiles['godot4/hero_kit/scripts/paperdoll_modular.gd']).toBeDefined();
     expect(dualFiles['cocos3/hero_kit/scripts/PaperDollModular.ts']).toBeDefined();
+    expect(dualFiles['godot4/hero_kit/CREDITS.csv']).toBeDefined();
+    expect(dualFiles['cocos3/hero_kit/CREDITS.txt']).toBeDefined();
+  });
+
+  it('exports Universal Multi-Engine Atlas (TexturePacker, Aseprite JSON, Unity .meta) and passes SHA-256 golden render determinism', () => {
+    const { pack, images } = createDemoHDPackWithImages();
+    const hero = new PaperDollCharacter(pack, { preset: 'knight', direction: 'SE', action: 'idle' });
+    const cfg = hero.toJSON();
+
+    const bakeOnce = () =>
+      bakeCharacterSequences(
+        { pack, config: cfg, images },
+        {
+          characterName: 'golden_knight',
+          directions: ['SE', 'SW'],
+          actions: ['idle'],
+          frameSize: { width: 64, height: 64 },
+          fpsOverride: 4,
+        },
+      );
+
+    const baked1 = bakeOnce();
+    const baked2 = bakeOnce();
+
+    // Golden-render SHA-256 determinism: identical inputs must produce byte-identical atlas PNGs
+    const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+    const hash1 = sha256(baked1.atlas.png);
+    const hash2 = sha256(baked2.atlas.png);
+    expect(hash1).toBe(hash2);
+    expect(hash1).toMatch(/^[0-9a-f]{64}$/);
+
+    // Verify palette change visibly alters golden hash (ensures LUT recoloring is active)
+    const recolored = new PaperDollCharacter(pack, cfg).setAllClothingPalette('crimson').toJSON();
+    const bakedCrimson = bakeCharacterSequences(
+      { pack, config: recolored, images },
+      {
+        characterName: 'golden_knight',
+        directions: ['SE', 'SW'],
+        actions: ['idle'],
+        frameSize: { width: 64, height: 64 },
+        fpsOverride: 4,
+      },
+    );
+    expect(sha256(bakedCrimson.atlas.png)).not.toBe(hash1);
+
+    // Universal atlas bundle validation
+    const uni = exportUniversalAtlasBundle(baked1);
+    expect(uni.zipFilename).toBe('golden_knight_universal_atlas.zip');
+    const files = unzipSync(uni.zip);
+    expect(files['golden_knight/golden_knight_atlas.png']).toBeDefined();
+    expect(files['golden_knight/golden_knight_atlas.png.meta']).toBeDefined();
+    expect(files['golden_knight/golden_knight_texturepacker.json']).toBeDefined();
+    expect(files['golden_knight/golden_knight_aseprite.json']).toBeDefined();
+
+    const tp = JSON.parse(String(uni.files['golden_knight/golden_knight_texturepacker.json'])) as {
+      frames: Record<string, unknown>;
+      animations: Record<string, string[]>;
+    };
+    expect(Object.keys(tp.frames).length).toBe(baked1.atlas.sprites.length);
+    expect(tp.animations.idle_SE?.length).toBeGreaterThan(0);
+
+    const ase = JSON.parse(String(uni.files['golden_knight/golden_knight_aseprite.json'])) as {
+      meta: { frameTags: Array<{ name: string; from: number; to: number }> };
+    };
+    expect(ase.meta.frameTags.map((t) => t.name)).toEqual(['idle_SE', 'idle_SW']);
+
+    const unityMeta = String(uni.files['golden_knight/golden_knight_atlas.png.meta']);
+    expect(unityMeta).toContain('spriteMode: 2');
+    expect(unityMeta).toContain('name: golden_knight_idle_SE_00');
   });
 });

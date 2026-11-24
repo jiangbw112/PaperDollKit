@@ -23,6 +23,7 @@ import {
   exportDualEngineModularBundle,
   exportGodot4BakedBundle,
   exportGodot4ModularBundle,
+  exportUniversalAtlasBundle,
   type RgbaImage,
 } from '@paperdollkit/exporters';
 import {
@@ -257,7 +258,9 @@ export function runCli(argv: string[]): CliResult {
             ? exportGodot4BakedBundle(baked)
             : engine === 'cocos3'
               ? exportCocos3BakedBundle(baked)
-              : exportDualEngineBakedBundle(baked);
+              : engine === 'universal'
+                ? exportUniversalAtlasBundle(baked)
+                : exportDualEngineBakedBundle(baked);
 
         const credits = buildCreditsFiles(pack, [config]);
         const zipPath = join(outDir, bundle.zipFilename);
