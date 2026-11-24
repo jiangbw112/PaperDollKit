@@ -1,0 +1,29 @@
+{
+  "name": "@paperdollkit/cli",
+  "version": "2.0.0-alpha.0",
+  "description": "Headless CLI for PaperDollKit v2: asset auditing, seeded NPC batch generation, contact sheets, credits, and Godot 4 / Cocos 3.x Mode A & Mode B export",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "paperdollkit": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@paperdollkit/core": "workspace:*",
+    "@paperdollkit/importers": "workspace:*",
+    "@paperdollkit/exporters": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

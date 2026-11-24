@@ -8,6 +8,7 @@ import {
   type SpriteFrameRef,
 } from '@paperdollkit/core';
 import { encodePngRGBA } from '../codec/png.js';
+import { buildCreditsFiles } from '../credits/credits.js';
 import type {
   BakeCharacterInput,
   ModularExportData,
@@ -178,11 +179,14 @@ export function buildModularExportData(
     },
   };
 
+  const creditsBundle = buildCreditsFiles(pack, includeAllParts ? undefined : [config]);
+
   return {
     kitName,
     manifest,
     textures,
     prebakedLuts,
+    credits: { csv: creditsBundle.csv, txt: creditsBundle.txt },
     stats: {
       partCount,
       textureCount: textures.length,

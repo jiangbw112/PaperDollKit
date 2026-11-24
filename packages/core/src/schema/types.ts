@@ -192,6 +192,17 @@ export interface PartRules {
   overrideSlots?: Record<SlotId, string>;
 }
 
+export interface PartAttribution {
+  /** Author or studio name credited for this artwork. */
+  author: string;
+  /** License identifier (e.g. 'MIT', 'CC0', 'CC-BY-4.0', 'Commercial'). */
+  license: string;
+  /** Optional source or portfolio URL. */
+  url?: string;
+  /** Optional extra attribution notes. */
+  notes?: string;
+}
+
 export interface PartAsset {
   id: string;
   name: string;
@@ -201,6 +212,8 @@ export interface PartAsset {
   directions: Record<DirectionId, PartDirectionVisual>;
   /** Optional slot visibility/substitution rules evaluated when this part is equipped. */
   rules?: PartRules;
+  /** Optional author/license attribution metadata (falls back to AssetPackManifest.defaultAttribution). */
+  attribution?: PartAttribution;
   tags?: string[];
 }
 
@@ -273,6 +286,8 @@ export interface AssetPackManifest {
   parts: Record<SlotId, PartAsset[]>;
   animations: Record<string, AnimationClip>;
   presets: CharacterPreset[];
+  /** Default author/license attribution applied to parts without an explicit attribution field. */
+  defaultAttribution?: PartAttribution;
 }
 
 export interface CharacterConfig {

@@ -175,6 +175,7 @@ export interface ModularExportData {
   manifest: ModularManifestJson;
   textures: ModularTextureEntry[];
   prebakedLuts: Record<string, Uint8Array>;
+  credits?: { csv: string; txt: string };
   stats: {
     partCount: number;
     textureCount: number;

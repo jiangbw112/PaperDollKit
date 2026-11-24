@@ -752,6 +752,10 @@ export function exportGodot4ModularBundle(
     `${resBase}/${shaderRel}`,
   );
   files[`${folder}/README_GODOT4_MODULAR.md`] = buildGodot4ModularReadme(modular, resBase);
+  if (modular.credits) {
+    files[`${folder}/CREDITS.csv`] = modular.credits.csv;
+    files[`${folder}/CREDITS.txt`] = modular.credits.txt;
+  }
 
   for (const tex of modular.textures) {
     const texRel = `textures/${tex.filename}`;

@@ -22,11 +22,15 @@ interface PaintSurface {
 }
 
 function createSurface(width: number, height: number): PaintSurface {
+  const mask = new Uint8ClampedArray(width * height * 4);
+  for (let i = 3; i < mask.length; i += 4) {
+    mask[i] = 255;
+  }
   return {
     width,
     height,
     albedo: new Uint8ClampedArray(width * height * 4),
-    mask: new Uint8ClampedArray(width * height * 4),
+    mask,
   };
 }
 
@@ -133,11 +137,11 @@ function paintSdfShape(
       albedo[idx + 2] = Math.round((sb * sa + albedo[idx + 2]! * dstA * (1 - sa)) / outA);
       albedo[idx + 3] = Math.round(outA * 255);
 
-      // Blend mask channels identically with anti-aliased coverage (keeps hand/sleeve border smooth!)
+      // Blend mask RGB channels with anti-aliased coverage while keeping A=255 opaque
       mask[idx] = Math.round((mr * sa + mask[idx]! * dstA * (1 - sa)) / outA);
       mask[idx + 1] = Math.round((mg * sa + mask[idx + 1]! * dstA * (1 - sa)) / outA);
       mask[idx + 2] = Math.round((mb * sa + mask[idx + 2]! * dstA * (1 - sa)) / outA);
-      mask[idx + 3] = Math.round((ma * sa + mask[idx + 3]! * dstA * (1 - sa)) / outA);
+      mask[idx + 3] = 255;
     }
   }
 }

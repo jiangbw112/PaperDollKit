@@ -814,6 +814,10 @@ export function exportCocos3ModularBundle(
   files[`${folder}/shaders/paperdoll-mask-ramp.effect`] = buildCocos3MaskRampEffect();
   files[`${folder}/scripts/PaperDollModular.ts`] = buildCocos3ModularScript();
   files[`${folder}/README_COCOS3_MODULAR.md`] = buildCocos3ModularReadme(modular);
+  if (modular.credits) {
+    files[`${folder}/CREDITS.csv`] = modular.credits.csv;
+    files[`${folder}/CREDITS.txt`] = modular.credits.txt;
+  }
 
   for (const tex of modular.textures) {
     files[`${folder}/textures/${tex.filename}`] = tex.png;
