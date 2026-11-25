@@ -326,6 +326,12 @@ export async function loadChibiHDPack(basePath = '/assets/chibi-hero'): Promise<
 
   const staffFrame = makeFrame('weapon_staff', { x: 0.36, y: 0.62 });
   registerDualFacingPart('main_hand', 'arcane_staff', '秘法水晶杖', staffFrame, staffFrame);
+  const chibiStaff = parts.main_hand?.find((p) => p.id === 'arcane_staff');
+  if (chibiStaff) {
+    chibiStaff.glows = [
+      { x: 18, y: -48, radius: 32, color: 'palette_primary', intensity: 1.0, pulseSpeed: 1.4, starFlare: true, castBoost: 1.5 },
+    ];
+  }
 
   const axeFrame = makeFrame('weapon_axe', { x: 0.22, y: 0.80 });
   registerDualFacingPart('main_hand', 'battle_axe', '双刃战斧', axeFrame, axeFrame);

@@ -116,7 +116,7 @@ export default function App() {
     return ch.toJSON();
   });
 
-  const [selectedSlotId, setSelectedSlotId] = useState<SlotId>('front_arm');
+  const [selectedSlotId, setSelectedSlotId] = useState<SlotId>('main_hand');
   const [activePresetId, setActivePresetId] = useState<string>('paladin');
   const [presetWallOpen, setPresetWallOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -1660,10 +1660,14 @@ export default function App() {
                   <div className="flex items-center gap-1">
                     <select
                       value={currentPart}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) =>
-                        mutateCharacter((ch) => ch.setSlot(slot.id, e.target.value))
-                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedSlotId(slot.id);
+                      }}
+                      onChange={(e) => {
+                        setSelectedSlotId(slot.id);
+                        mutateCharacter((ch) => ch.setSlot(slot.id, e.target.value));
+                      }}
                       className={`w-full rounded border border-slate-700/80 bg-slate-950/90 px-1.5 py-0.5 text-[11px] text-slate-200 focus:border-sky-500 focus:outline-none ${
                         suppressed?.reason === 'hidden' ? 'opacity-55' : ''
                       }`}
@@ -2414,15 +2418,20 @@ export default function App() {
 
             {selectedPart && (
               <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1 font-medium text-amber-200">
-                    <Sparkles className="h-3 w-3 text-amber-400" />
-                    装备发光点 (Glow)
-                  </span>
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="min-w-0">
+                    <span className="flex items-center gap-1 font-medium text-amber-200">
+                      <Sparkles className="h-3 w-3 shrink-0 text-amber-400" />
+                      <span className="truncate">发光点 · {selectedPart.name}</span>
+                    </span>
+                    <div className="text-[10px] text-slate-400 truncate">
+                      挂载槽位：{selectedSlotDef.name} ({selectedSlotId})
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={toggleSelectedPartGlow}
-                    className={`rounded px-2 py-0.5 text-[10px] font-semibold transition ${
+                    className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold transition ${
                       selectedPartGlow
                         ? 'bg-amber-500/25 text-amber-200 border border-amber-400/50'
                         : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200'
@@ -2431,6 +2440,25 @@ export default function App() {
                     {selectedPartGlow ? '已开启' : '未开启'}
                   </button>
                 </div>
+
+                {!selectedPartGlow && evaluatedFrame.glows && evaluatedFrame.glows.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400">
+                    <span>已发光槽位：</span>
+                    {Array.from(new Set(evaluatedFrame.glows.map((g) => g.slotId))).map((gid) => {
+                      const sName = pack.slots.find((s) => s.id === gid)?.name ?? gid;
+                      return (
+                        <button
+                          key={gid}
+                          type="button"
+                          onClick={() => setSelectedSlotId(gid)}
+                          className="rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-amber-200 hover:bg-amber-500/25 transition"
+                        >
+                          {sName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {selectedPartGlow && (
                   <div className="space-y-1.5 pt-0.5">
