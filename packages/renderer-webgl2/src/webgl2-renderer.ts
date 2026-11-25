@@ -352,6 +352,21 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
     gl.uniform1i(this.uniforms.statusMode, statusMode);
     gl.uniform1f(this.uniforms.statusIntensity, statusMode > 0 ? (vfx?.statusIntensity ?? 1.0) : 0);
 
+    // Group glows by owning slotId so each glow renders in exact zOrder right after its part
+    // (properly occluded when the staff swings behind the torso/head/wings in back-facing directions)
+    const glowsBySlot = new Map<string, NonNullable<EvaluatedFrame['glows']>>();
+    if (frame.glows && frame.glows.length > 0 && !opts.debugMaskView) {
+      for (const glow of frame.glows) {
+        if (glow.intensity <= 0.001 || glow.radius <= 0) continue;
+        let list = glowsBySlot.get(glow.slotId);
+        if (!list) {
+          list = [];
+          glowsBySlot.set(glow.slotId, list);
+        }
+        list.push(glow);
+      }
+    }
+
     for (const layer of frame.layers) {
       const albedoSrc = images.get(layer.frame.imageId);
       if (!albedoSrc) continue;
@@ -419,34 +434,34 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       gl.bindTexture(gl.TEXTURE_2D, normalTex);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
 
-    // Additive pass for equipment glow points (staff crystal, orb, lantern, halo)
-    if (frame.glows && frame.glows.length > 0 && !opts.debugMaskView) {
-      gl.useProgram(this.glowProgram);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-      gl.uniform2f(this.glowUniforms.canvasSize, pack.canvasSize.width, pack.canvasSize.height);
-      gl.uniform2f(this.glowUniforms.viewportSize, viewW, viewH);
-      gl.uniform2f(this.glowUniforms.pan, opts.panX ?? 0, opts.panY ?? 0);
-      gl.uniform1f(this.glowUniforms.zoom, opts.zoom ?? 1);
+      const slotGlows = glowsBySlot.get(layer.slotId);
+      if (slotGlows && slotGlows.length > 0) {
+        gl.useProgram(this.glowProgram);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        gl.uniform2f(this.glowUniforms.canvasSize, pack.canvasSize.width, pack.canvasSize.height);
+        gl.uniform2f(this.glowUniforms.viewportSize, viewW, viewH);
+        gl.uniform2f(this.glowUniforms.pan, opts.panX ?? 0, opts.panY ?? 0);
+        gl.uniform1f(this.glowUniforms.zoom, opts.zoom ?? 1);
 
-      for (const glow of frame.glows) {
-        if (glow.intensity <= 0.001 || glow.radius <= 0) continue;
-        const col = parseColor(glow.color);
-        gl.uniform2f(this.glowUniforms.glowPos, glow.x, glow.y);
-        gl.uniform1f(this.glowUniforms.glowRadius, glow.radius);
-        gl.uniform3f(this.glowUniforms.glowColor, col.r / 255, col.g / 255, col.b / 255);
-        gl.uniform1f(this.glowUniforms.glowIntensity, glow.intensity);
-        gl.uniform1i(this.glowUniforms.starFlare, glow.starFlare ? 1 : 0);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        for (const glow of slotGlows) {
+          const col = parseColor(glow.color);
+          gl.uniform2f(this.glowUniforms.glowPos, glow.x, glow.y);
+          gl.uniform1f(this.glowUniforms.glowRadius, glow.radius);
+          gl.uniform3f(this.glowUniforms.glowColor, col.r / 255, col.g / 255, col.b / 255);
+          gl.uniform1f(this.glowUniforms.glowIntensity, glow.intensity);
+          gl.uniform1i(this.glowUniforms.starFlare, glow.starFlare ? 1 : 0);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+
+        gl.blendFuncSeparate(
+          gl.SRC_ALPHA,
+          gl.ONE_MINUS_SRC_ALPHA,
+          gl.ONE,
+          gl.ONE_MINUS_SRC_ALPHA,
+        );
+        gl.useProgram(this.program);
       }
-
-      gl.blendFuncSeparate(
-        gl.SRC_ALPHA,
-        gl.ONE_MINUS_SRC_ALPHA,
-        gl.ONE,
-        gl.ONE_MINUS_SRC_ALPHA,
-      );
     }
 
     gl.bindVertexArray(null);

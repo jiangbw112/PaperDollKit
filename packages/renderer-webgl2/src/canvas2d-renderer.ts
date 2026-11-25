@@ -178,6 +178,16 @@ export class Canvas2DPaperDollRenderer implements PaperDollRenderer {
     ctx.scale(zoom, zoom);
     ctx.translate(-pack.canvasSize.width * 0.5, -pack.canvasSize.height * 0.5);
 
+    const glowsBySlot = new Map<string, NonNullable<EvaluatedFrame['glows']>>();
+    if (frame.glows && frame.glows.length > 0 && !opts.debugMaskView) {
+      for (const g of frame.glows) {
+        if (g.intensity <= 0.001 || g.radius <= 0) continue;
+        const list = glowsBySlot.get(g.slotId) ?? [];
+        list.push(g);
+        glowsBySlot.set(g.slotId, list);
+      }
+    }
+
     for (const layer of frame.layers) {
       const albedo = images.get(layer.frame.imageId);
       if (!albedo) continue;
@@ -198,6 +208,25 @@ export class Canvas2DPaperDollRenderer implements PaperDollRenderer {
       const drawY = trimOffset.y - pivot.y * originalSize.height;
       ctx.drawImage(sprite, 0, 0, sourceRect.width, sourceRect.height, drawX, drawY, sourceRect.width, sourceRect.height);
       ctx.restore();
+
+      const slotGlows = glowsBySlot.get(layer.slotId);
+      if (slotGlows && slotGlows.length > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (const glow of slotGlows) {
+          const col = parseColor(glow.color);
+          const alpha = Math.min(1, glow.intensity);
+          const grad = ctx.createRadialGradient(glow.x, glow.y, 0, glow.x, glow.y, glow.radius);
+          grad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, alpha * 0.9)})`);
+          grad.addColorStop(0.32, `rgba(${col.r}, ${col.g}, ${col.b}, ${Math.min(1, alpha * 0.72)})`);
+          grad.addColorStop(1, `rgba(${col.r}, ${col.g}, ${col.b}, 0)`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(glow.x, glow.y, glow.radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
     }
 
     ctx.restore();

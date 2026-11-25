@@ -194,9 +194,22 @@ export class SecondaryPhysicsRig {
       };
     });
 
+    let nextGlows = frame.glows;
+    if (frame.glows && frame.glows.length > 0) {
+      nextGlows = frame.glows.map((g) => {
+        const st = this.states.get(g.slotId);
+        if (!st) return g;
+        const dx = st.x * strength;
+        const dy = st.y * strength;
+        if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return g;
+        return { ...g, x: g.x + dx, y: g.y + dy };
+      });
+    }
+
     return {
       ...frame,
       layers: nextLayers,
+      ...(nextGlows ? { glows: nextGlows } : {}),
     };
   }
 }

@@ -173,54 +173,54 @@ export function bakeFrameCPU(
         out[oi + 3] = Math.round(outA * 255);
       }
     }
-  }
 
-  // Additive pass for equipment glow points (staff tip gem, orb, lantern flame, halo)
-  if (frame.glows && frame.glows.length > 0) {
-    const radiusScale = (scaleX + scaleY) * 0.5;
-    for (const glow of frame.glows) {
-      if (glow.intensity <= 0.001 || glow.radius <= 0) continue;
-      const cx = glow.x * scaleX;
-      const cy = glow.y * scaleY;
-      const rPx = glow.radius * radiusScale;
-      const col = parseColor(glow.color);
+    // Additive pass for equipment glow points belonging to this layer (honors exact zOrder occlusion)
+    if (frame.glows && frame.glows.length > 0) {
+      const radiusScale = (scaleX + scaleY) * 0.5;
+      for (const glow of frame.glows) {
+        if (glow.slotId !== layer.slotId || glow.intensity <= 0.001 || glow.radius <= 0) continue;
+        const cx = glow.x * scaleX;
+        const cy = glow.y * scaleY;
+        const rPx = glow.radius * radiusScale;
+        const col = parseColor(glow.color);
 
-      const gx0 = Math.max(0, Math.floor(cx - rPx));
-      const gx1 = Math.min(width - 1, Math.ceil(cx + rPx));
-      const gy0 = Math.max(0, Math.floor(cy - rPx));
-      const gy1 = Math.min(height - 1, Math.ceil(cy + rPx));
+        const gx0 = Math.max(0, Math.floor(cx - rPx));
+        const gx1 = Math.min(width - 1, Math.ceil(cx + rPx));
+        const gy0 = Math.max(0, Math.floor(cy - rPx));
+        const gy1 = Math.min(height - 1, Math.ceil(cy + rPx));
 
-      for (let oy = gy0; oy <= gy1; oy++) {
-        const ny = (oy + 0.5 - cy) / rPx;
-        const ny2 = ny * ny;
-        for (let ox = gx0; ox <= gx1; ox++) {
-          const nx = (ox + 0.5 - cx) / rPx;
-          const dist2 = nx * nx + ny2;
-          if (dist2 >= 1) continue;
-          const dist = Math.sqrt(dist2);
+        for (let oy = gy0; oy <= gy1; oy++) {
+          const ny = (oy + 0.5 - cy) / rPx;
+          const ny2 = ny * ny;
+          for (let ox = gx0; ox <= gx1; ox++) {
+            const nx = (ox + 0.5 - cx) / rPx;
+            const dist2 = nx * nx + ny2;
+            if (dist2 >= 1) continue;
+            const dist = Math.sqrt(dist2);
 
-          const core = Math.exp(-dist2 * 14);
-          const halo = Math.pow(Math.max(0, 1 - dist), 2.4) * 0.65;
-          let flare = 0;
-          if (glow.starFlare) {
-            const ax = Math.exp(-Math.abs(nx) * 14) * Math.exp(-Math.abs(ny) * 2.4);
-            const ay = Math.exp(-Math.abs(ny) * 14) * Math.exp(-Math.abs(nx) * 2.4);
-            flare = (ax + ay) * 0.55;
+            const core = Math.exp(-dist2 * 14);
+            const halo = Math.pow(Math.max(0, 1 - dist), 2.4) * 0.65;
+            let flare = 0;
+            if (glow.starFlare) {
+              const ax = Math.exp(-Math.abs(nx) * 14) * Math.exp(-Math.abs(ny) * 2.4);
+              const ay = Math.exp(-Math.abs(ny) * 14) * Math.exp(-Math.abs(nx) * 2.4);
+              flare = (ax + ay) * 0.55;
+            }
+
+            const energy = Math.min(1, Math.max(0, (core + halo + flare) * glow.intensity));
+            if (energy <= 0.002) continue;
+
+            const whiteMix = Math.min(0.85, core * 0.72);
+            const gr = col.r + (255 - col.r) * whiteMix;
+            const gg = col.g + (255 - col.g) * whiteMix;
+            const gb = col.b + (255 - col.b) * whiteMix;
+
+            const oi = (oy * width + ox) * 4;
+            out[oi] = Math.min(255, Math.round(out[oi]! + gr * energy));
+            out[oi + 1] = Math.min(255, Math.round(out[oi + 1]! + gg * energy));
+            out[oi + 2] = Math.min(255, Math.round(out[oi + 2]! + gb * energy));
+            out[oi + 3] = Math.min(255, Math.round(out[oi + 3]! + energy * 255));
           }
-
-          const energy = Math.min(1, Math.max(0, (core + halo + flare) * glow.intensity));
-          if (energy <= 0.002) continue;
-
-          const whiteMix = Math.min(0.85, core * 0.72);
-          const gr = col.r + (255 - col.r) * whiteMix;
-          const gg = col.g + (255 - col.g) * whiteMix;
-          const gb = col.b + (255 - col.b) * whiteMix;
-
-          const oi = (oy * width + ox) * 4;
-          out[oi] = Math.min(255, Math.round(out[oi]! + gr * energy));
-          out[oi + 1] = Math.min(255, Math.round(out[oi + 1]! + gg * energy));
-          out[oi + 2] = Math.min(255, Math.round(out[oi + 2]! + gb * energy));
-          out[oi + 3] = Math.min(255, Math.round(out[oi + 3]! + energy * 255));
         }
       }
     }
