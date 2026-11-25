@@ -10,6 +10,7 @@ import {
   type CharacterConfig,
   type ColorPalette,
   type DirectionId,
+  type PartGlowSpec,
   type SlotId,
   type Vec2,
 } from '@paperdollkit/core';
@@ -1000,6 +1001,58 @@ export default function App() {
           ? { ...s, defaultOffset: { ...s.defaultOffset, [axis]: value } }
           : s,
       ),
+    }));
+  };
+
+  const selectedPartId = config.slots[selectedSlotId];
+  const selectedPart =
+    selectedPartId && selectedPartId !== 'none'
+      ? (pack.parts[selectedSlotId] ?? []).find((p) => p.id === selectedPartId)
+      : undefined;
+  const selectedPartGlow = selectedPart?.glows?.[0];
+
+  const toggleSelectedPartGlow = () => {
+    if (!selectedPart) return;
+    pushHistory(`glow:toggle:${selectedSlotId}:${selectedPart.id}`);
+    setPack((prev) => ({
+      ...prev,
+      parts: {
+        ...prev.parts,
+        [selectedSlotId]: (prev.parts[selectedSlotId] ?? []).map((p) => {
+          if (p.id !== selectedPart.id) return p;
+          if (p.glows && p.glows.length > 0) {
+            return { ...p, glows: [] };
+          }
+          const defaultGlow: PartGlowSpec = {
+            x: 0,
+            y: -36,
+            radius: 30,
+            color: 'palette_primary',
+            intensity: 1.0,
+            pulseSpeed: 1.5,
+            starFlare: true,
+            castBoost: 1.45,
+          };
+          return { ...p, glows: [defaultGlow] };
+        }),
+      },
+    }));
+  };
+
+  const updateSelectedPartGlow = (patch: Partial<PartGlowSpec>) => {
+    if (!selectedPart) return;
+    pushHistory(`glow:edit:${selectedSlotId}:${selectedPart.id}`);
+    setPack((prev) => ({
+      ...prev,
+      parts: {
+        ...prev.parts,
+        [selectedSlotId]: (prev.parts[selectedSlotId] ?? []).map((p) => {
+          if (p.id !== selectedPart.id || !p.glows?.length) return p;
+          const next = [...p.glows];
+          next[0] = { ...next[0]!, ...patch };
+          return { ...p, glows: next };
+        }),
+      },
     }));
   };
 
@@ -2358,6 +2411,141 @@ export default function App() {
                 </span>
               </label>
             </div>
+
+            {selectedPart && (
+              <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1 font-medium text-amber-200">
+                    <Sparkles className="h-3 w-3 text-amber-400" />
+                    装备发光点 (Glow)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleSelectedPartGlow}
+                    className={`rounded px-2 py-0.5 text-[10px] font-semibold transition ${
+                      selectedPartGlow
+                        ? 'bg-amber-500/25 text-amber-200 border border-amber-400/50'
+                        : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    {selectedPartGlow ? '已开启' : '未开启'}
+                  </button>
+                </div>
+
+                {selectedPartGlow && (
+                  <div className="space-y-1.5 pt-0.5">
+                    <label className="flex items-center justify-between gap-2">
+                      <span className="w-10 text-slate-400">局部 X</span>
+                      <input
+                        type="range"
+                        min={-80}
+                        max={80}
+                        step={1}
+                        value={selectedPartGlow.x}
+                        onChange={(e) => updateSelectedPartGlow({ x: Number(e.target.value) })}
+                        className="flex-1 accent-amber-400"
+                      />
+                      <span className="w-8 text-right font-mono text-slate-200">
+                        {selectedPartGlow.x}
+                      </span>
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span className="w-10 text-slate-400">局部 Y</span>
+                      <input
+                        type="range"
+                        min={-100}
+                        max={80}
+                        step={1}
+                        value={selectedPartGlow.y}
+                        onChange={(e) => updateSelectedPartGlow({ y: Number(e.target.value) })}
+                        className="flex-1 accent-amber-400"
+                      />
+                      <span className="w-8 text-right font-mono text-slate-200">
+                        {selectedPartGlow.y}
+                      </span>
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span className="w-10 text-slate-400">半径</span>
+                      <input
+                        type="range"
+                        min={10}
+                        max={64}
+                        step={1}
+                        value={selectedPartGlow.radius}
+                        onChange={(e) => updateSelectedPartGlow({ radius: Number(e.target.value) })}
+                        className="flex-1 accent-amber-400"
+                      />
+                      <span className="w-8 text-right font-mono text-slate-200">
+                        {selectedPartGlow.radius}
+                      </span>
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span className="w-10 text-slate-400">强度</span>
+                      <input
+                        type="range"
+                        min={0.2}
+                        max={1.8}
+                        step={0.05}
+                        value={selectedPartGlow.intensity ?? 1.0}
+                        onChange={(e) =>
+                          updateSelectedPartGlow({ intensity: Number(e.target.value) })
+                        }
+                        className="flex-1 accent-amber-400"
+                      />
+                      <span className="w-8 text-right font-mono text-slate-200">
+                        {(selectedPartGlow.intensity ?? 1.0).toFixed(2)}
+                      </span>
+                    </label>
+
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateSelectedPartGlow({
+                              color:
+                                selectedPartGlow.color === 'palette_primary'
+                                  ? '#38bdf8'
+                                  : 'palette_primary',
+                            })
+                          }
+                          className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
+                            selectedPartGlow.color === 'palette_primary'
+                              ? 'border-sky-400/60 bg-sky-500/20 text-sky-200'
+                              : 'border-slate-700 bg-slate-800 text-slate-300'
+                          }`}
+                        >
+                          {selectedPartGlow.color === 'palette_primary' ? '跟随色板' : '固定光色'}
+                        </button>
+                        {selectedPartGlow.color !== 'palette_primary' && (
+                          <input
+                            type="color"
+                            value={
+                              selectedPartGlow.color.startsWith('#')
+                                ? selectedPartGlow.color
+                                : '#38bdf8'
+                            }
+                            onChange={(e) => updateSelectedPartGlow({ color: e.target.value })}
+                            className="h-5 w-6 cursor-pointer rounded border border-slate-700 bg-transparent"
+                          />
+                        )}
+                      </div>
+                      <label className="flex items-center gap-1 text-[10px] text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selectedPartGlow.starFlare)}
+                          onChange={(e) =>
+                            updateSelectedPartGlow({ starFlare: e.target.checked })
+                          }
+                          className="accent-amber-400"
+                        />
+                        星芒
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {lastReport && (
               <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-[11px] text-slate-400 space-y-1">

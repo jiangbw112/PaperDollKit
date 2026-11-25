@@ -210,12 +210,24 @@ interface FrameRef {
   sockets?: Record<string, { x: number; y: number; rotationDeg?: number; scaleX?: number; scaleY?: number; zOffset?: number }>;
 }
 
+interface PartGlowDef {
+  x: number;
+  y: number;
+  radius: number;
+  color: string;
+  intensity?: number;
+  pulseSpeed?: number;
+  starFlare?: boolean;
+  castBoost?: number;
+}
+
 interface PartDef {
   id: string;
   name: string;
   slotId: string;
   recolorMode?: string;
   rules?: { hidesSlots?: string[]; overrideSlots?: Record<string, string> };
+  glows?: PartGlowDef[];
   directions: Record<string, { mode: 'rigged' | 'sequence'; frames: FrameRef[]; actionFrames?: Record<string, FrameRef[]>; fps?: number }>;
 }
 
@@ -427,6 +439,59 @@ export class PaperDollModular extends Component {
     this.outlineWidth = Math.max(0, widthPx);
     this.outlineColor = color.clone();
     this.evaluateAndApply(this.timeMs);
+  }
+
+  /**
+   * Returns active equipment glow points (e.g. staff crystal, orb, lantern) in node-local coordinates
+   * so you can bind additive glow sprites or 2D lights in Cocos Creator 3.x.
+   */
+  public getActiveGlowPoints(): Array<{
+    slotId: string;
+    x: number;
+    y: number;
+    radius: number;
+    color: string;
+    intensity: number;
+    starFlare: boolean;
+  }> {
+    const out: Array<{
+      slotId: string;
+      x: number;
+      y: number;
+      radius: number;
+      color: string;
+      intensity: number;
+      starFlare: boolean;
+    }> = [];
+    if (!this.manifest) return out;
+    for (const [sid, pid] of Object.entries(this.currentSlots)) {
+      if (!pid || pid === 'none' || this.hiddenSlots.has(sid)) continue;
+      const node = this.slotNodes.get(sid);
+      if (!node || !node.active) continue;
+      const part = (this.manifest.parts[sid] ?? []).find((p) => p.id === pid);
+      if (!part?.glows?.length) continue;
+      const pos = node.getPosition();
+      const scl = node.getScale();
+      const flip = scl.x < 0 ? -1 : 1;
+      for (const g of part.glows) {
+        let color = g.color;
+        if (color === 'palette_primary' || color === 'palette_secondary') {
+          const palId = this.currentPalettes[sid] ?? Object.keys(this.manifest.palettes)[0];
+          const pal = palId ? (this.manifest.palettes[palId] as { swatch?: string } | undefined) : undefined;
+          color = pal?.swatch ?? '#38bdf8';
+        }
+        out.push({
+          slotId: sid,
+          x: pos.x + g.x * flip * Math.abs(scl.x),
+          y: pos.y - g.y * Math.abs(scl.y),
+          radius: g.radius,
+          color,
+          intensity: g.intensity ?? 1.0,
+          starFlare: Boolean(g.starFlare),
+        });
+      }
+    }
+    return out;
   }
 
   update(dt: number) {

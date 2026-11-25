@@ -301,6 +301,47 @@ func set_outline(width_px: float, color: Color = Color(0.08, 0.08, 0.12, 1.0)) -
 \t_outline_color = color
 \t_apply_vfx_uniforms()
 
+## Returns active equipment glow points (e.g. staff tip, orb, lantern) in node-local coordinates
+## so you can attach PointLight2D or additive glow sprites in Godot 4.
+func get_active_glow_points() -> Array:
+\tvar result: Array = []
+\tif manifest.is_empty():
+\t\treturn result
+\tvar parts_by_slot: Dictionary = manifest.get("parts", {})
+\tvar palettes_map: Dictionary = manifest.get("palettes", {})
+\tfor sid in current_slots.keys():
+\t\tif hidden_slots.get(sid, false):
+\t\t\tcontinue
+\t\tvar pid: String = str(current_slots[sid])
+\t\tif pid == "" or pid == "none":
+\t\t\tcontinue
+\t\tvar sp: Sprite2D = _slot_sprites.get(sid, null)
+\t\tif sp == null or not sp.visible:
+\t\t\tcontinue
+\t\tfor p in parts_by_slot.get(sid, []):
+\t\t\tif p.get("id", "") != pid:
+\t\t\t\tcontinue
+\t\t\tfor g in p.get("glows", []):
+\t\t\t\tvar lx := float(g.get("x", 0.0))
+\t\t\t\tif sp.flip_h:
+\t\t\t\t\tlx = -lx
+\t\t\t\tvar ly := float(g.get("y", 0.0))
+\t\t\t\tvar local_pos := sp.transform * Vector2(lx, ly)
+\t\t\t\tvar col_spec := str(g.get("color", "palette_primary"))
+\t\t\t\tif col_spec == "palette_primary" or col_spec == "palette_secondary":
+\t\t\t\t\tvar pal_id: String = str(current_palettes.get(sid, "royal_blue"))
+\t\t\t\t\tvar pal: Dictionary = palettes_map.get(pal_id, {})
+\t\t\t\t\tcol_spec = str(pal.get("swatch", "#38bdf8"))
+\t\t\t\tresult.append({
+\t\t\t\t\t"slot_id": sid,
+\t\t\t\t\t"position": local_pos,
+\t\t\t\t\t"radius": float(g.get("radius", 28.0)),
+\t\t\t\t\t"color": Color.html(col_spec) if col_spec.begins_with("#") else Color(0.22, 0.74, 0.97, 1.0),
+\t\t\t\t\t"intensity": float(g.get("intensity", 1.0)),
+\t\t\t\t\t"star_flare": bool(g.get("starFlare", false)),
+\t\t\t\t})
+\treturn result
+
 func _process(delta: float) -> void:
 \tif manifest.is_empty():
 \t\treturn

@@ -621,6 +621,27 @@ export async function loadStickerHDPack(basePath = './assets/sticker-hero'): Pro
   addSharedPart('off_hand', 'orb', '悬浮法球', makeFrame('offhand_orb', { x: 0.50, y: 0.50 }));
   addSharedPart('off_hand', 'potion', '炼金药瓶', makeFrame('offhand_potion', { x: 0.50, y: 0.52 }));
 
+  // Attach built-in additive glow points (pixel-verified local offsets relative to part pivot)
+  const attachGlows = (slotId: string, partId: string, glows: NonNullable<PartAsset['glows']>) => {
+    const part = parts[slotId]?.find((p) => p.id === partId);
+    if (part) part.glows = glows;
+  };
+  attachGlows('main_hand', 'staff', [
+    { x: 24, y: -54, radius: 34, color: 'palette_primary', intensity: 1.05, pulseSpeed: 1.4, starFlare: true, castBoost: 1.5 },
+  ]);
+  attachGlows('main_hand', 'lantern', [
+    { x: 0, y: 26, radius: 28, color: '#fbbf24', intensity: 0.95, pulseSpeed: 2.4, starFlare: false, castBoost: 1.2 },
+  ]);
+  attachGlows('off_hand', 'orb', [
+    { x: 0, y: 0, radius: 30, color: 'palette_primary', intensity: 1.0, pulseSpeed: 1.8, starFlare: true, castBoost: 1.45 },
+  ]);
+  attachGlows('off_hand', 'lantern', [
+    { x: 0, y: 26, radius: 28, color: '#fbbf24', intensity: 0.95, pulseSpeed: 2.4, starFlare: false, castBoost: 1.2 },
+  ]);
+  attachGlows('head_hat', 'halo', [
+    { x: 0, y: -50, radius: 32, color: '#fde047', intensity: 0.78, pulseSpeed: 1.1, starFlare: true, castBoost: 1.35 },
+  ]);
+
   const pack: AssetPackManifest = {
     schemaVersion: SCHEMA_VERSION,
     id: 'sticker-doll-16',

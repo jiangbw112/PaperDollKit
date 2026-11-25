@@ -7,7 +7,12 @@ import {
   type EvaluatedFrame,
   type EvaluatedLayer,
 } from '@paperdollkit/core';
-import { FRAGMENT_SHADER_SRC, VERTEX_SHADER_SRC } from './shaders.js';
+import {
+  FRAGMENT_SHADER_SRC,
+  GLOW_FRAGMENT_SHADER_SRC,
+  GLOW_VERTEX_SHADER_SRC,
+  VERTEX_SHADER_SRC,
+} from './shaders.js';
 import type {
   ImageLookup,
   PaperDollRenderer,
@@ -82,6 +87,18 @@ interface UniformLocations {
   statusIntensity: WebGLUniformLocation | null;
 }
 
+interface GlowUniformLocations {
+  glowPos: WebGLUniformLocation | null;
+  glowRadius: WebGLUniformLocation | null;
+  canvasSize: WebGLUniformLocation | null;
+  viewportSize: WebGLUniformLocation | null;
+  pan: WebGLUniformLocation | null;
+  zoom: WebGLUniformLocation | null;
+  glowColor: WebGLUniformLocation | null;
+  glowIntensity: WebGLUniformLocation | null;
+  starFlare: WebGLUniformLocation | null;
+}
+
 const STATUS_MODE_MAP: Record<string, number> = {
   none: 0,
   frozen: 1,
@@ -99,11 +116,13 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
   readonly backend = 'webgl2' as const;
   private readonly gl: WebGL2RenderingContext;
   private readonly program: WebGLProgram;
+  private readonly glowProgram: WebGLProgram;
   private readonly vao: WebGLVertexArrayObject;
   private readonly vbo: WebGLBuffer;
   private readonly emptyMaskTex: WebGLTexture;
   private readonly flatNormalTex: WebGLTexture;
   private readonly uniforms: UniformLocations;
+  private readonly glowUniforms: GlowUniformLocations;
   private readonly imageTextures = new Map<string, { tex: WebGLTexture; src: RenderImageSource }>();
   private readonly lutTextures = new Map<string, WebGLTexture>();
   private disposed = false;
@@ -120,6 +139,7 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
     }
     this.gl = gl;
     this.program = linkProgram(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC);
+    this.glowProgram = linkProgram(gl, GLOW_VERTEX_SHADER_SRC, GLOW_FRAGMENT_SHADER_SRC);
 
     const vao = gl.createVertexArray();
     const vbo = gl.createBuffer();
@@ -182,6 +202,18 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       texelSize: gl.getUniformLocation(this.program, 'u_texel_size'),
       statusMode: gl.getUniformLocation(this.program, 'u_status_mode'),
       statusIntensity: gl.getUniformLocation(this.program, 'u_status_intensity'),
+    };
+
+    this.glowUniforms = {
+      glowPos: gl.getUniformLocation(this.glowProgram, 'u_glow_pos'),
+      glowRadius: gl.getUniformLocation(this.glowProgram, 'u_glow_radius'),
+      canvasSize: gl.getUniformLocation(this.glowProgram, 'u_canvas_size'),
+      viewportSize: gl.getUniformLocation(this.glowProgram, 'u_viewport_size'),
+      pan: gl.getUniformLocation(this.glowProgram, 'u_pan'),
+      zoom: gl.getUniformLocation(this.glowProgram, 'u_zoom'),
+      glowColor: gl.getUniformLocation(this.glowProgram, 'u_glow_color'),
+      glowIntensity: gl.getUniformLocation(this.glowProgram, 'u_glow_intensity'),
+      starFlare: gl.getUniformLocation(this.glowProgram, 'u_star_flare'),
     };
   }
 
@@ -389,6 +421,34 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
+    // Additive pass for equipment glow points (staff crystal, orb, lantern, halo)
+    if (frame.glows && frame.glows.length > 0 && !opts.debugMaskView) {
+      gl.useProgram(this.glowProgram);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.uniform2f(this.glowUniforms.canvasSize, pack.canvasSize.width, pack.canvasSize.height);
+      gl.uniform2f(this.glowUniforms.viewportSize, viewW, viewH);
+      gl.uniform2f(this.glowUniforms.pan, opts.panX ?? 0, opts.panY ?? 0);
+      gl.uniform1f(this.glowUniforms.zoom, opts.zoom ?? 1);
+
+      for (const glow of frame.glows) {
+        if (glow.intensity <= 0.001 || glow.radius <= 0) continue;
+        const col = parseColor(glow.color);
+        gl.uniform2f(this.glowUniforms.glowPos, glow.x, glow.y);
+        gl.uniform1f(this.glowUniforms.glowRadius, glow.radius);
+        gl.uniform3f(this.glowUniforms.glowColor, col.r / 255, col.g / 255, col.b / 255);
+        gl.uniform1f(this.glowUniforms.glowIntensity, glow.intensity);
+        gl.uniform1i(this.glowUniforms.starFlare, glow.starFlare ? 1 : 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+
+      gl.blendFuncSeparate(
+        gl.SRC_ALPHA,
+        gl.ONE_MINUS_SRC_ALPHA,
+        gl.ONE,
+        gl.ONE_MINUS_SRC_ALPHA,
+      );
+    }
+
     gl.bindVertexArray(null);
   }
 
@@ -439,5 +499,6 @@ export class WebGL2PaperDollRenderer implements PaperDollRenderer {
     this.gl.deleteBuffer(this.vbo);
     this.gl.deleteVertexArray(this.vao);
     this.gl.deleteProgram(this.program);
+    this.gl.deleteProgram(this.glowProgram);
   }
 }

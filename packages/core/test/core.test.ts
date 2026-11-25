@@ -329,4 +329,51 @@ describe('@paperdollkit/core v2.0 IR & runtime', () => {
     expect(Math.abs(settled.x)).toBeLessThan(0.25);
     expect(Math.abs(settled.angleDeg)).toBeLessThan(0.35);
   });
+
+  it('evaluates equipment glow points with world transform, flipX mirroring, palette colors, and cast boost', () => {
+    const glowPack = structuredClone(pack);
+    const weaponPart = glowPack.parts.main_hand?.[0];
+    expect(weaponPart).toBeDefined();
+    weaponPart!.glows = [
+      {
+        x: 20,
+        y: -40,
+        radius: 30,
+        color: 'palette_primary',
+        intensity: 1.0,
+        pulseSpeed: 1.5,
+        starFlare: true,
+        castBoost: 1.5,
+      },
+    ];
+
+    const hero = new PaperDollCharacter(glowPack, {
+      direction: 'SE',
+      action: 'idle',
+      slots: { main_hand: weaponPart!.id },
+      palettes: { main_hand: 'cobalt' },
+    });
+
+    const seIdle = hero.evaluate(0);
+    expect(seIdle.glows).toHaveLength(1);
+    const gSe = seIdle.glows![0]!;
+    expect(gSe.slotId).toBe('main_hand');
+    expect(gSe.starFlare).toBe(true);
+    expect(gSe.color).toBe(glowPack.palettes.cobalt!.swatch);
+
+    // Mirroring SE -> SW must mirror the glow's local X offset across the weapon pivot
+    hero.setDirection('SW');
+    const swIdle = hero.evaluate(0);
+    expect(swIdle.glows).toHaveLength(1);
+    const seLayer = seIdle.layers.find((l) => l.slotId === 'main_hand')!;
+    const swLayer = swIdle.layers.find((l) => l.slotId === 'main_hand')!;
+    expect(gSe.x - seLayer.worldMatrix[4]).toBeGreaterThan(0);
+    expect(swIdle.glows![0]!.x - swLayer.worldMatrix[4]).toBeLessThan(0);
+
+    // Switching to cast action boosts glow intensity & radius
+    hero.setDirection('SE').setAction('cast');
+    const seCast = hero.evaluate(0);
+    expect(seCast.glows![0]!.intensity).toBeGreaterThan(gSe.intensity);
+    expect(seCast.glows![0]!.radius).toBeGreaterThan(gSe.radius);
+  });
 });

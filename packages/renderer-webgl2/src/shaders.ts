@@ -195,3 +195,66 @@ void main() {
   outColor = vec4(finalRgb, finalAlpha);
 }
 `;
+
+/**
+ * Lightweight GLSL ES 3.00 Vertex Shader for additive equipment glow halos
+ * (e.g. magic staff tip gem, floating orb, lantern flame, halo).
+ */
+export const GLOW_VERTEX_SHADER_SRC = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec2 a_unit_pos;
+
+uniform vec2 u_glow_pos;       // World position in character canvas pixels (Y-down)
+uniform float u_glow_radius;   // Radius in character canvas pixels
+uniform vec2 u_canvas_size;
+uniform vec2 u_viewport_size;
+uniform vec2 u_pan;
+uniform float u_zoom;
+
+out vec2 v_local; // [-1, 1] centered on glow
+
+void main() {
+  v_local = a_unit_pos * 2.0 - 1.0;
+  vec2 worldPos = u_glow_pos + v_local * u_glow_radius;
+  vec2 centered = (worldPos - u_canvas_size * 0.5) * u_zoom + u_viewport_size * 0.5 + u_pan;
+  vec2 ndc = (centered / u_viewport_size) * 2.0 - 1.0;
+  gl_Position = vec4(ndc.x, -ndc.y, 0.0, 1.0);
+}
+`;
+
+/**
+ * Lightweight GLSL ES 3.00 Fragment Shader rendering a soft radial glow halo
+ * with an optional crisp 4-point star flare (blended with SRC_ALPHA, ONE).
+ */
+export const GLOW_FRAGMENT_SHADER_SRC = `#version 300 es
+precision highp float;
+
+in vec2 v_local;
+
+uniform vec3 u_glow_color;
+uniform float u_glow_intensity;
+uniform int u_star_flare;
+
+out vec4 outColor;
+
+void main() {
+  float r = length(v_local);
+  if (r >= 1.0) discard;
+
+  // Soft exponential core + wide atmospheric falloff
+  float core = exp(-r * r * 14.0);
+  float halo = pow(max(0.0, 1.0 - r), 2.4) * 0.65;
+  float flare = 0.0;
+  if (u_star_flare == 1) {
+    float ax = exp(-abs(v_local.x) * 14.0) * exp(-abs(v_local.y) * 2.4);
+    float ay = exp(-abs(v_local.y) * 14.0) * exp(-abs(v_local.x) * 2.4);
+    flare = (ax + ay) * 0.55;
+  }
+
+  float energy = clamp((core + halo + flare) * u_glow_intensity, 0.0, 1.5);
+  // White-hot center blending smoothly into colored halo
+  vec3 rgb = mix(u_glow_color, vec3(1.0), clamp(core * 0.72, 0.0, 0.85));
+  outColor = vec4(rgb, clamp(energy, 0.0, 1.0));
+}
+`;

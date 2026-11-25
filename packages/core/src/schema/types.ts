@@ -207,6 +207,25 @@ export interface PartAttribution {
   notes?: string;
 }
 
+export interface PartGlowSpec {
+  /** Local X offset in pixels relative to the part frame's pivot. */
+  x: number;
+  /** Local Y offset in pixels relative to the part frame's pivot. */
+  y: number;
+  /** Glow halo radius in character canvas pixels (default 28). */
+  radius: number;
+  /** Hex color ('#38bdf8') or 'palette_primary' / 'palette_secondary' to follow slot palette. */
+  color: string;
+  /** Base intensity in [0..2] (default 0.95). */
+  intensity?: number;
+  /** Breathing pulse frequency in Hz (default 1.5, 0 = steady). */
+  pulseSpeed?: number;
+  /** Render a crisp 4-point star flare inside the radial halo (default true). */
+  starFlare?: boolean;
+  /** Extra radius/intensity multiplier during 'cast' action (default 1.45). */
+  castBoost?: number;
+}
+
 export interface PartAsset {
   id: string;
   name: string;
@@ -216,6 +235,8 @@ export interface PartAsset {
   directions: Record<DirectionId, PartDirectionVisual>;
   /** Optional slot visibility/substitution rules evaluated when this part is equipped. */
   rules?: PartRules;
+  /** Optional additive glow points (e.g. magic staff tip, orb, lantern flame, halo). */
+  glows?: PartGlowSpec[];
   /** Optional author/license attribution metadata (falls back to AssetPackManifest.defaultAttribution). */
   attribution?: PartAttribution;
   tags?: string[];
@@ -338,6 +359,21 @@ export interface SuppressedSlotInfo {
   overridePartName?: string;
 }
 
+export interface EvaluatedGlow {
+  slotId: SlotId;
+  partId: string;
+  /** World-space position in character canvas pixels. */
+  x: number;
+  y: number;
+  radius: number;
+  /** Resolved hex color string (e.g. '#38bdf8'). */
+  color: string;
+  /** Effective animated intensity (includes breathing pulse & cast boost). */
+  intensity: number;
+  starFlare: boolean;
+  zOrder: number;
+}
+
 export interface EvaluatedFrame {
   direction: DirectionSpec;
   actionId: string;
@@ -346,6 +382,8 @@ export interface EvaluatedFrame {
   discreteFrameIndex: number;
   /** Sorted back-to-front ready for drawing or exporting. */
   layers: EvaluatedLayer[];
+  /** Optional additive glow points resolved into character canvas world coordinates. */
+  glows?: EvaluatedGlow[];
   /** Slots automatically hidden or substituted by equipped parts' `PartRules`. */
   suppressedSlots?: Record<SlotId, SuppressedSlotInfo>;
 }

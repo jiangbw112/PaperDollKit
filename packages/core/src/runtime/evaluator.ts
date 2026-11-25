@@ -1,4 +1,5 @@
 import {
+  applyMat2D,
   composeTransform,
   defaultSampledTrack,
   identityTransform,
@@ -12,6 +13,7 @@ import type {
   CharacterConfig,
   DirectionSpec,
   EvaluatedFrame,
+  EvaluatedGlow,
   EvaluatedLayer,
   PartAsset,
   PartDirectionVisual,
@@ -373,6 +375,49 @@ export function evaluateCharacterFrame(
     }
   }
 
+  // Resolve declarative equipment glow points into world coordinates
+  const glows: EvaluatedGlow[] = [];
+  for (const layer of layers) {
+    const active = activeFrames.get(layer.slotId);
+    const partGlows = active?.part.glows;
+    if (!partGlows || partGlows.length === 0) continue;
+
+    const pal = pack.palettes[layer.paletteId] ?? Object.values(pack.palettes)[0];
+    const isCast = clip.id === 'cast';
+
+    for (const g of partGlows) {
+      const localX = layer.flipX ? -g.x : g.x;
+      const worldPt = applyMat2D(layer.worldMatrix, { x: localX, y: g.y });
+
+      let color = g.color || '#38bdf8';
+      if (color === 'palette_primary') {
+        color = pal?.swatch ?? '#38bdf8';
+      } else if (color === 'palette_secondary') {
+        const secStop = pal?.secondary.stops[Math.max(0, (pal?.secondary.stops.length ?? 1) - 2)];
+        color = typeof secStop?.color === 'string' ? secStop.color : (pal?.swatch ?? '#fbbf24');
+      }
+
+      const pulseSpeed = g.pulseSpeed ?? 1.5;
+      const pulse =
+        pulseSpeed > 0
+          ? 1 + 0.16 * Math.sin((effectiveTimeMs / 1000) * Math.PI * 2 * pulseSpeed)
+          : 1;
+      const castMult = isCast ? (g.castBoost ?? 1.45) : 1.0;
+
+      glows.push({
+        slotId: layer.slotId,
+        partId: layer.partId,
+        x: worldPt.x,
+        y: worldPt.y,
+        radius: Math.max(4, (g.radius || 28) * (isCast ? 1 + (castMult - 1) * 0.55 : 1) * (0.94 + 0.06 * pulse)),
+        color,
+        intensity: Math.max(0, (g.intensity ?? 0.95) * pulse * castMult * layer.alpha),
+        starFlare: g.starFlare !== false,
+        zOrder: layer.zOrder,
+      });
+    }
+  }
+
   return {
     direction,
     actionId: clip.id,
@@ -380,6 +425,7 @@ export function evaluateCharacterFrame(
     normalizedTime,
     discreteFrameIndex,
     layers,
+    ...(glows.length > 0 ? { glows } : {}),
     ...(Object.keys(suppressedSlots).length > 0 ? { suppressedSlots } : {}),
   };
 }
